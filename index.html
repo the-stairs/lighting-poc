@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lighting POC (p5.js)</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <aside class="panel" id="control-panel">
+      <h1>Lighting POC</h1>
+
+      <section class="group">
+        <div class="row">
+          <button id="togglePanelBtn" type="button">패널 숨기기 (P)</button>
+        </div>
+      </section>
+
+      <section class="group">
+        <h2>배경 색상</h2>
+        <div class="row">
+          <button id="bg-black" type="button">검정</button>
+          <button id="bg-gray" type="button">회색</button>
+          <label class="grow right">
+            <span>팔레트</span>
+            <input id="bgColor" type="color" value="#000000" />
+          </label>
+        </div>
+      </section>
+
+      <section class="group">
+        <h2>생성 모양</h2>
+        <div class="row">
+          <label
+            ><input type="radio" name="shape" value="circle" checked />
+            원형</label
+          >
+          <label><input type="radio" name="shape" value="rect" /> 사각형</label>
+        </div>
+        <p class="hint">캔버스를 클릭하면 현재 모양으로 조명이 생성됩니다.</p>
+      </section>
+
+      <section class="group">
+        <h2>블렌딩 강도</h2>
+        <label class="row">
+          <input
+            id="blendingSlider"
+            type="range"
+            min="0"
+            max="200"
+            step="1"
+            value="100"
+          />
+          <output id="blendingValue">100%</output>
+        </label>
+        <p class="hint">겹치는 빛의 합성 강도를 조절합니다.</p>
+      </section>
+
+      <section class="group">
+        <h2>전역 노출(톤매핑)</h2>
+        <label class="row">
+          <input
+            id="exposureSlider"
+            type="range"
+            min="0.1"
+            max="5"
+            step="0.01"
+            value="1.2"
+          />
+          <output id="exposureValue">1.20</output>
+        </label>
+      </section>
+
+      <section class="group">
+        <h2>선택된 조명 속성</h2>
+        <div id="no-selection" class="muted">
+          조명을 선택하면 속성이 표시됩니다.
+        </div>
+
+        <div id="light-controls" class="stack" aria-disabled="true">
+          <div id="circle-size" class="row">
+            <label class="grow">
+              <span>크기 (Size)</span>
+              <input
+                id="sizeSlider"
+                type="range"
+                min="10"
+                max="1200"
+                step="1"
+                value="300"
+                disabled
+              />
+            </label>
+            <output id="sizeValue">300</output>
+          </div>
+
+          <div id="rect-size" class="col">
+            <div class="row">
+              <label class="grow">
+                <span>가로</span>
+                <input
+                  id="widthSlider"
+                  type="range"
+                  min="10"
+                  max="1600"
+                  step="1"
+                  value="220"
+                  disabled
+                />
+              </label>
+              <output id="widthValue">220</output>
+            </div>
+            <div class="row">
+              <label class="grow">
+                <span>세로</span>
+                <input
+                  id="heightSlider"
+                  type="range"
+                  min="10"
+                  max="1200"
+                  step="1"
+                  value="160"
+                  disabled
+                />
+              </label>
+              <output id="heightValue">160</output>
+            </div>
+          </div>
+
+          <div class="row">
+            <label class="grow">
+              <span>밝기 (HDR Intensity)</span>
+              <input
+                id="brightnessSlider"
+                type="range"
+                min="0"
+                max="2000"
+                step="1"
+                value="300"
+                disabled
+              />
+            </label>
+            <output id="brightnessValue">300</output>
+          </div>
+
+          <div class="row">
+            <label class="grow">
+              <span>페더 (Feather)</span>
+              <input
+                id="softnessSlider"
+                type="range"
+                min="0"
+                max="800"
+                step="1"
+                value="150"
+                disabled
+              />
+            </label>
+            <output id="softnessValue">150</output>
+          </div>
+
+          <div class="row">
+            <label class="grow">
+              <span>Falloff (1/r² 계수)</span>
+              <input
+                id="falloffSlider"
+                type="range"
+                min="0.1"
+                max="8"
+                step="0.1"
+                value="1.5"
+                disabled
+              />
+            </label>
+            <output id="falloffValue">1.5</output>
+          </div>
+
+          <div class="row">
+            <label class="grow right">
+              <span>색상</span>
+              <input id="lightColor" type="color" value="#ffffff" disabled />
+            </label>
+          </div>
+
+          <div class="row">
+            <button id="deleteLightBtn" type="button" disabled>
+              선택 조명 삭제
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <footer class="muted small">클릭: 생성/선택 · 드래그: 이동</footer>
+    </aside>
+
+    <main
+      id="canvas-container"
+      class="canvas-container"
+      aria-label="canvas"
+    ></main>
+
+    <script src="https://cdn.jsdelivr.net/npm/p5@1.9.2/lib/p5.min.js"></script>
+    <script src="main.js"></script>
+    <script src="ui.js"></script>
+  </body>
+</html>
