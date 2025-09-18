@@ -76,6 +76,7 @@ function draw() {
 
 // ============ Input/Interaction ============
 function mousePressed() {
+  if (isPointerOverPanel()) return;
   if (!isMouseOnCanvas()) return;
 
   // Try select topmost light under cursor
@@ -100,6 +101,7 @@ function mousePressed() {
 }
 
 function mouseDragged() {
+  if (isPointerOverPanel()) return;
   if (!appState.dragging) return;
   const selected = getSelectedLight();
   if (!selected) return;
@@ -108,11 +110,13 @@ function mouseDragged() {
 }
 
 function mouseReleased() {
+  if (isPointerOverPanel()) return;
   appState.dragging = false;
 }
 
 // Delete by double click on a light
 function doubleClicked() {
+  if (isPointerOverPanel()) return;
   if (!isMouseOnCanvas()) return;
   const idx = hitTest(mouseX, mouseY);
   if (idx === -1) return;
@@ -126,6 +130,23 @@ function doubleClicked() {
 
 function isMouseOnCanvas() {
   return mouseX >= 0 && mouseX <= width && mouseY >= 0 && mouseY <= height;
+}
+
+function isPointerOverPanel() {
+  const x =
+    typeof winMouseX === "number"
+      ? winMouseX
+      : window.event && typeof window.event.clientX === "number"
+      ? window.event.clientX
+      : 0;
+  const y =
+    typeof winMouseY === "number"
+      ? winMouseY
+      : window.event && typeof window.event.clientY === "number"
+      ? window.event.clientY
+      : 0;
+  const el = document.elementFromPoint(x, y);
+  return !!(el && el.closest && el.closest("#control-panel"));
 }
 
 function hitTest(x, y) {

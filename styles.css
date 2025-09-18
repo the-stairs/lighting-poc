@@ -24,11 +24,19 @@ body {
 }
 
 .panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
   width: var(--panel-width);
+  z-index: 1000;
   padding: 16px 14px;
   background: var(--surface);
   border-right: 1px solid #262626;
   overflow-y: auto;
+  transform: translateX(0);
+  transition: transform 180ms ease;
+  pointer-events: auto;
 }
 
 .panel h1 {
@@ -107,6 +115,7 @@ button:hover {
 .canvas-container {
   flex: 1;
   position: relative;
+  width: 100vw;
   height: 100vh;
   overflow: hidden;
 }
@@ -128,5 +137,6 @@ canvas {
 
 /* Panel toggle */
 body.panel-hidden .panel {
-  display: none;
+  transform: translateX(-100%);
+  pointer-events: none;
 }

@@ -237,5 +237,44 @@ document.addEventListener("DOMContentLoaded", () => {
       window.app.clearSelection();
     }
   });
+
+  // ===== 패널 위 입력을 p5로 보내지 않기: 버블 단계에서 전파 차단 =====
+  const panelEl = document.getElementById("control-panel");
+  if (panelEl) {
+    const bubbleBlock = [
+      "pointerdown",
+      "pointerup",
+      "pointermove",
+      "pointercancel",
+      "mousedown",
+      "mouseup",
+      "mousemove",
+      "click",
+      "dblclick",
+      "touchstart",
+      "touchend",
+      "touchmove",
+      "touchcancel",
+      "contextmenu",
+    ];
+    bubbleBlock.forEach((type) => {
+      panelEl.addEventListener(
+        type,
+        (e) => {
+          if (document.body.classList.contains("panel-hidden")) return;
+          e.stopPropagation();
+        },
+        false
+      );
+    });
+    panelEl.addEventListener(
+      "wheel",
+      (e) => {
+        if (document.body.classList.contains("panel-hidden")) return;
+        e.stopPropagation();
+      },
+      { capture: false, passive: true }
+    );
+  }
   updateToggleButtonLabel();
 });
