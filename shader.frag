@@ -25,6 +25,8 @@ uniform vec2 u_lightRectSize[U_MAX_LIGHTS];
 uniform float u_lightFalloffK[U_MAX_LIGHTS];
 uniform float u_lightRotation[U_MAX_LIGHTS];
 uniform float u_lightOpacity[U_MAX_LIGHTS];
+uniform float u_outRatio;
+uniform float u_falloffC;
 
 // rotate point p by angle r (radians)
 vec2 rotate2D(vec2 p, float r) {
@@ -73,7 +75,7 @@ void main() {
     float op = pow(opacity, 2.2);
 
     float R = sizePx;
-    float F = max(featherPx, 0.0);
+    float F = max(featherPx, 1e-6);
 
     // edge distance: <=0 inside core, >0 outside
     float edgeDist;
@@ -96,26 +98,30 @@ void main() {
       edgeDist = (d - 1.0) * max(rad.x, rad.y);
     }
 
-    // apply falloff only outside the hotspot core
-    float distFromCore = max(0.0, edgeDist);
-    // inward feather: keep outer radius fixed, fade only inside
-    float Fe = clamp(F, 1e-6, R);
+    // hybrid feather: inward + outward by ratio
+    float inRatio = 1.0 - u_outRatio;
     float profile;
-    if (edgeDist >= 0.0) {
+    float start = -inRatio * F;
+    float end = u_outRatio * F;
+    if (edgeDist >= end) {
       profile = 0.0; // outside is always 0
-    } else if (edgeDist <= -Fe) {
+    } else if (edgeDist <= start) {
       profile = 1.0; // inner flat region
     } else {
-      // feather band: (R-Fe) .. R => 1 -> 0
-      float t = clamp((edgeDist + Fe) / Fe, 0.0, 1.0); // 0(inner) -> 1(edge)
+      float t = (edgeDist - start) / (end - start); // start=>0, end=>1
       profile = 1.0 - smoothstep(0.0, 1.0, t);
-      const float EDGE_GAMMA = 1.6; // perceptual edge lock (softer rolloff)
-      profile = pow(profile, EDGE_GAMMA);
     }
+    const float EDGE_GAMMA = 1.6; // perceptual edge lock (softer rolloff)
+    profile = pow(profile, EDGE_GAMMA);
 
-    // uniform intensity; no falloff in core or outside
+    // falloff uses the same normalized space as profile for consistency
+    float denom = max(end - start, 1e-6);
+    float tFalloff = clamp((edgeDist - start) / denom, 0.0, 1.0);
+    float falloff = 1.0 / (1.0 + pow(tFalloff, k) * u_falloffC);
+
+    // uniform intensity; profile and falloff shape the edge
     float intensity = intensityHdr / 2000.0;
-    vec3 baseContrib = colorL * intensity * profile;
+    vec3 baseContrib = colorL * intensity * profile * falloff;
     if (op <= 0.0) continue;
     if (DEBUG_OPACITY_VIS == 1) {
       lightAccum += vec3(op);

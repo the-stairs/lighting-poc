@@ -7,11 +7,15 @@ const U_MAX_LIGHTS = 64;
 const INTENSITY_MAX = 2000; // HDR scale per spec
 const FEATHER_UI_MAX = 800;
 const FEATHER_PX_CAP = 800;
+const OUT_RATIO = 0.15;
+const IN_RATIO = 1.0 - OUT_RATIO;
+const DEBUG_LOGS = false;
 
 const appState = {
   backgroundColor: "#000000", // sRGB hex
   creationShape: "circle", // 'circle' | 'rect' | 'ellipse'
   exposure: 1.2,
+  falloffC: 2.0,
   colorSpace: 1, // 0: linear input, 1: sRGB input (palette)
   lights: [],
   selectedLightId: null,
@@ -291,6 +295,7 @@ function uploadUniforms() {
 
   // globals
   glShader.setUniform("u_exposure", appState.exposure);
+  glShader.setUniform("u_falloffC", appState.falloffC);
   glShader.setUniform("u_colorSpace", appState.colorSpace);
 
   // compress active lights into uniform arrays
@@ -321,8 +326,10 @@ function uploadUniforms() {
     colorArr[i * 3 + 2] = l.colorLinear.b;
     intensityArr[i] = constrain(l.intensity ?? 0, 0, INTENSITY_MAX);
     let sizePx = 0;
+    let minHalfSize = 0;
     if (l.type === "circle") {
       sizePx = Math.max(0, l.radius || 0);
+      minHalfSize = sizePx;
       rectSizeArr[i * 2 + 0] = (l.radius || 1) * 2;
       rectSizeArr[i * 2 + 1] = (l.radius || 1) * 2;
     } else if (l.type === "ellipse") {
@@ -332,10 +339,12 @@ function uploadUniforms() {
       const rx = base * sx;
       const ry = base * sy;
       sizePx = Math.max(rx, ry);
+      minHalfSize = Math.min(rx, ry);
       rectSizeArr[i * 2 + 0] = rx * 2;
       rectSizeArr[i * 2 + 1] = ry * 2;
     } else {
       sizePx = Math.max(0, Math.max(l.width || 0, l.height || 0) * 0.5);
+      minHalfSize = Math.min((l.width || 0) * 0.5, (l.height || 0) * 0.5);
       rectSizeArr[i * 2 + 0] = Math.max(1, l.width || 1);
       rectSizeArr[i * 2 + 1] = Math.max(1, l.height || 1);
     }
@@ -343,12 +352,17 @@ function uploadUniforms() {
     const t = constrain((l.feather ?? 150) / FEATHER_UI_MAX, 0, 1);
     const perceptual = Math.pow(t, 2.2);
     const featherPx = perceptual * Math.min(FEATHER_PX_CAP, sizePx);
-    featherArr[i] = featherPx;
+    const capByInward = (minHalfSize * 0.9) / Math.max(IN_RATIO, 1e-6);
+    const MAX_SPILL = minHalfSize * 0.4; // tuning point
+    const capByOutward = MAX_SPILL / Math.max(OUT_RATIO, 1e-6);
+    featherArr[i] = Math.min(featherPx, capByInward, capByOutward);
     falloffArr[i] = constrain(l.falloffK ?? 1.5, 0.1, 8);
     rotationArr[i] = l.rotation ?? 0.0;
     opacityArr[i] = constrain(l.opacity ?? 1.0, 0, 1);
   }
-  console.log("[opacityArr]", Array.from(opacityArr.slice(0, count)));
+  if (DEBUG_LOGS) {
+    console.log("[opacityArr]", Array.from(opacityArr.slice(0, count)));
+  }
 
   glShader.setUniform("u_lightType", typeArr);
   glShader.setUniform("u_lightPos", posArr);
@@ -360,7 +374,13 @@ function uploadUniforms() {
   glShader.setUniform("u_lightFalloffK", falloffArr);
   glShader.setUniform("u_lightRotation", rotationArr);
   glShader.setUniform("u_lightOpacity", opacityArr);
+  glShader.setUniform("u_outRatio", OUT_RATIO);
 }
+
+// Checklist:
+// - Feather up reduces "shrink" and preserves presence.
+// - Extreme feather does not collapse into a dot (double-cap).
+// - OUT_RATIO change stays in sync (JS uniform + shader).
 
 // ============ Public API for UI ============
 function setBackgroundColor(hex) {
@@ -375,6 +395,10 @@ function setCreationShape(shape) {
 
 function setExposure(v) {
   appState.exposure = Math.max(0.1, Math.min(5, v));
+}
+
+function setFalloffC(v) {
+  appState.falloffC = clamp(v, 0.2, 6.0, 2.0);
 }
 
 function updateSelectedLight(props) {
@@ -401,7 +425,9 @@ function updateSelectedLight(props) {
   if (typeof props.rotation === "number") l.rotation = props.rotation;
   if (typeof props.opacity === "number") {
     l.opacity = constrain(props.opacity, 0, 1);
-    console.log("[opacity] selected=", l.id, "opacity=", l.opacity);
+    if (DEBUG_LOGS) {
+      console.log("[opacity] selected=", l.id, "opacity=", l.opacity);
+    }
   }
   if (typeof props.color === "string") {
     l.color = props.color;
@@ -493,6 +519,7 @@ function serializePreset() {
     backgroundColor: s.backgroundColor,
     creationShape: s.creationShape,
     exposure: s.exposure,
+    falloffC: s.falloffC,
     colorSpace: s.colorSpace,
     lights: (s.lights || []).map((l) => {
       const out = {
@@ -537,6 +564,7 @@ function applyPreset(preset) {
       ? "ellipse"
       : "circle";
   appState.exposure = clamp(preset.exposure, 0.1, 5, appState.exposure);
+  appState.falloffC = clamp(preset.falloffC, 0.2, 6.0, appState.falloffC);
   appState.colorSpace = preset.colorSpace === 0 ? 0 : 1;
 
   const src = Array.isArray(preset.lights) ? preset.lights : [];
@@ -564,6 +592,7 @@ window.app = {
   setBackgroundColor,
   setCreationShape,
   setExposure,
+  setFalloffC,
   updateSelectedLight,
   getSelectedLight,
   getState,

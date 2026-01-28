@@ -75,6 +75,22 @@
       </section>
 
       <section class="group">
+        <h2>전역 튜닝</h2>
+        <label class="row">
+          <span class="grow">Falloff Strength</span>
+          <input
+            id="falloffCSlider"
+            type="range"
+            min="0.2"
+            max="6.0"
+            step="0.1"
+            value="2.0"
+          />
+          <output id="falloffCValue">2.0</output>
+        </label>
+      </section>
+
+      <section class="group">
         <h2>선택된 조명 속성</h2>
         <div id="no-selection" class="muted">
           조명을 선택하면 속성이 표시됩니다.
@@ -236,6 +252,9 @@
               />
             </label>
             <output id="falloffValue">1.5</output>
+          </div>
+          <div id="falloffHint" class="muted small" style="display: none">
+            Feather가 0이면 Falloff 효과가 거의 없습니다.
           </div>
 
           <div class="row">

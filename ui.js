@@ -12,6 +12,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const exposureSlider = $("#exposureSlider");
   const exposureValue = $("#exposureValue");
+  const falloffCSlider = $("#falloffCSlider");
+  const falloffCValue = $("#falloffCValue");
 
   const noSel = $("#no-selection");
   const controls = $("#light-controls");
@@ -41,6 +43,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const softnessValue = $("#softnessValue");
   const falloffSlider = $("#falloffSlider");
   const falloffValue = $("#falloffValue");
+  const falloffHint = $("#falloffHint");
   const lightColor = $("#lightColor");
   const deleteLightBtn = $("#deleteLightBtn");
   const exportBtn = $("#exportPresetBtn");
@@ -59,6 +62,14 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   ensureAppReady(() => {
+    function syncFalloffCFromState() {
+      if (!falloffCSlider || !falloffCValue || !window.app) return;
+      const state = window.app.getState && window.app.getState();
+      const v = Number(state && state.falloffC);
+      if (!Number.isFinite(v)) return;
+      falloffCSlider.value = v.toFixed(1);
+      falloffCValue.textContent = v.toFixed(1);
+    }
     // Preset: Export
     if (exportBtn) {
       exportBtn.addEventListener("click", () => {
@@ -90,6 +101,7 @@ document.addEventListener("DOMContentLoaded", () => {
           const obj = JSON.parse(text);
           const ok = window.app.importPreset(obj);
           if (!ok) alert("프리셋 형식이 올바르지 않습니다.");
+          syncFalloffCFromState();
         } catch (err) {
           console.error(err);
           alert("프리셋을 불러오지 못했습니다. JSON 형식인지 확인하세요.");
@@ -127,6 +139,15 @@ document.addEventListener("DOMContentLoaded", () => {
         window.app.setExposure(v);
       }
     });
+    if (falloffCSlider) {
+      falloffCSlider.addEventListener("input", (e) => {
+        const v = Number(e.target.value);
+        if (falloffCValue) falloffCValue.textContent = v.toFixed(1);
+        if (window.app && typeof window.app.setFalloffC === "function") {
+          window.app.setFalloffC(v);
+        }
+      });
+    }
 
     // Selected light controls
     function clamp01(value, fallback = 1) {
@@ -148,6 +169,7 @@ document.addEventListener("DOMContentLoaded", () => {
         brightnessSlider,
         opacitySlider,
         softnessSlider,
+        falloffSlider,
         lightColor,
         deleteLightBtn,
       ].forEach((el) => {
@@ -156,6 +178,9 @@ document.addEventListener("DOMContentLoaded", () => {
       noSel.style.display = enabled ? "none" : "block";
       if (!enabled && opacityDebug) {
         opacityDebug.textContent = "selected light opacity = --";
+      }
+      if (!enabled && falloffHint) {
+        falloffHint.style.display = "none";
       }
     }
 
@@ -210,6 +235,16 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
+    function updateFalloffHint(light, featherUiValue) {
+      if (!falloffHint) return;
+      if (!light) {
+        falloffHint.style.display = "none";
+        return;
+      }
+      const featherUi = Number(featherUiValue);
+      falloffHint.style.display = featherUi === 0 ? "block" : "none";
+    }
+
     // Reflect selection to panel
     window.addEventListener("app:selected", (e) => {
       const light = e.detail;
@@ -256,6 +291,7 @@ document.addEventListener("DOMContentLoaded", () => {
       lightColor.value = light.color;
       falloffSlider.value = (light.falloffK || 1.5).toFixed(1);
       falloffValue.textContent = `${falloffSlider.value}`;
+      updateFalloffHint(light, softnessSlider.value);
     });
 
     // Inputs -> selected light
@@ -329,7 +365,6 @@ document.addEventListener("DOMContentLoaded", () => {
       if (opacityDebug) {
         opacityDebug.textContent = `selected light opacity = ${op.toFixed(2)}`;
       }
-      console.log(`selected light opacity = ${op.toFixed(2)}`);
     });
     softnessSlider.addEventListener("input", (e) => {
       const v = Number(e.target.value);
@@ -337,10 +372,11 @@ document.addEventListener("DOMContentLoaded", () => {
       softnessValue.textContent = featherLabel.text;
       softnessValue.title = featherLabel.title;
       window.app.updateSelectedLight({ feather: v });
+      updateFalloffHint(window.app.getSelectedLight(), v);
     });
     falloffSlider.addEventListener("input", (e) => {
       const v = Number(e.target.value);
-      falloffValue.textContent = `${v}`;
+      falloffValue.textContent = v.toFixed(1);
       window.app.updateSelectedLight({ falloffK: v });
     });
     lightColor.addEventListener("input", (e) => {
@@ -354,6 +390,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // initialize labels
     exposureSlider.dispatchEvent(new Event("input", { bubbles: true }));
+    syncFalloffCFromState();
     setControlsEnabled(false);
     updateVisibilityByType(null);
   });
