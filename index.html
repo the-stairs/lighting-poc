@@ -17,6 +17,32 @@
       </section>
 
       <section class="group">
+        <h2>프리셋</h2>
+        <div class="row">
+          <button id="exportPresetBtn" type="button">Export JSON</button>
+          <button id="importPresetBtn" type="button">Import JSON</button>
+          <input
+            id="importPresetFile"
+            type="file"
+            accept="application/json"
+            style="display: none"
+          />
+        </div>
+        <div class="row">
+          <label class="grow">
+            <span>Export 파일명 (빈칸이면 자동)</span>
+            <input
+              id="presetFileName"
+              type="text"
+              placeholder="예: studio_A_softbox_v2"
+              autocomplete="off"
+            />
+          </label>
+        </div>
+        <p class="hint">현재 설정을 저장/불러오기 합니다.</p>
+      </section>
+
+      <section class="group">
         <h2>배경 색상</h2>
         <div class="row">
           <button id="bg-black" type="button">검정</button>
@@ -35,25 +61,12 @@
             ><input type="radio" name="shape" value="circle" checked />
             원형</label
           >
+          <label
+            ><input type="radio" name="shape" value="ellipse" /> 타원</label
+          >
           <label><input type="radio" name="shape" value="rect" /> 사각형</label>
         </div>
         <p class="hint">캔버스를 클릭하면 현재 모양으로 조명이 생성됩니다.</p>
-      </section>
-
-      <section class="group">
-        <h2>블렌딩 강도</h2>
-        <label class="row">
-          <input
-            id="blendingSlider"
-            type="range"
-            min="0"
-            max="200"
-            step="1"
-            value="100"
-          />
-          <output id="blendingValue">100%</output>
-        </label>
-        <p class="hint">겹치는 빛의 합성 강도를 조절합니다.</p>
       </section>
 
       <section class="group">
@@ -68,6 +81,22 @@
             value="1.2"
           />
           <output id="exposureValue">1.20</output>
+        </label>
+      </section>
+
+      <section class="group">
+        <h2>전역 튜닝</h2>
+        <label class="row">
+          <span class="grow">Falloff Strength</span>
+          <input
+            id="falloffCSlider"
+            type="range"
+            min="0.2"
+            max="6.0"
+            step="0.1"
+            value="2.0"
+          />
+          <output id="falloffCValue">2.0</output>
         </label>
       </section>
 
@@ -127,6 +156,47 @@
             </div>
           </div>
 
+          <div id="ellipse-controls" class="col" style="display: none">
+            <div class="row">
+              <label class="grow">
+                <span>Size X (ratio)</span>
+                <input
+                  id="sizeXSlider"
+                  type="range"
+                  min="0.1"
+                  max="3"
+                  step="0.01"
+                  value="1"
+                  disabled
+                />
+              </label>
+              <output id="sizeXValue">1.00</output>
+            </div>
+            <div class="row">
+              <label class="grow">
+                <span>Size Y (ratio)</span>
+                <input
+                  id="sizeYSlider"
+                  type="range"
+                  min="0.1"
+                  max="3"
+                  step="0.01"
+                  value="1"
+                  disabled
+                />
+              </label>
+              <output id="sizeYValue">1.00</output>
+            </div>
+            <div class="row" style="gap: 8px">
+              <button id="makeCircleByXBtn" type="button" disabled>
+                X=Y (use X)
+              </button>
+              <button id="makeCircleByYBtn" type="button" disabled>
+                X=Y (use Y)
+              </button>
+            </div>
+          </div>
+
           <div class="row">
             <label class="grow">
               <span>밝기 (HDR Intensity)</span>
@@ -141,6 +211,25 @@
               />
             </label>
             <output id="brightnessValue">300</output>
+          </div>
+
+          <div class="row">
+            <label class="grow">
+              <span>Opacity</span>
+              <input
+                id="opacitySlider"
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value="1"
+                disabled
+              />
+            </label>
+            <output id="opacityValue">1.00</output>
+          </div>
+          <div id="opacityDebug" class="muted small">
+            selected light opacity = 1.00
           </div>
 
           <div class="row">
@@ -173,6 +262,9 @@
               />
             </label>
             <output id="falloffValue">1.5</output>
+          </div>
+          <div id="falloffHint" class="muted small" style="display: none">
+            Feather가 0이면 Falloff 효과가 거의 없습니다.
           </div>
 
           <div class="row">

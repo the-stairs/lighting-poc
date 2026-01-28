@@ -5,12 +5,17 @@ let glShader;
 
 const U_MAX_LIGHTS = 64;
 const INTENSITY_MAX = 2000; // HDR scale per spec
+const FEATHER_UI_MAX = 800;
+const FEATHER_PX_CAP = 800;
+const OUT_RATIO = 0.15;
+const IN_RATIO = 1.0 - OUT_RATIO;
+const DEBUG_LOGS = false;
 
 const appState = {
   backgroundColor: "#000000", // sRGB hex
-  creationShape: "circle", // 'circle' | 'rect'
-  blendingStrength: 1.0, // 0..2 (UI에서 0..2로 매핑 예정, 현재는 0..1 입력 허용)
+  creationShape: "circle", // 'circle' | 'rect' | 'ellipse'
   exposure: 1.2,
+  falloffC: 2.0,
   colorSpace: 1, // 0: linear input, 1: sRGB input (palette)
   lights: [],
   selectedLightId: null,
@@ -66,6 +71,16 @@ function draw() {
     strokeWeight(1.5);
     if (selected.type === "circle") {
       circle(selected.x, selected.y, selected.radius * 2);
+    } else if (selected.type === "ellipse") {
+      const rx = Math.max(
+        1,
+        (selected.baseSize || 150) * (selected.sizeX || 1)
+      );
+      const ry = Math.max(
+        1,
+        (selected.baseSize || 150) * (selected.sizeY || 1)
+      );
+      ellipse(selected.x, selected.y, rx * 2, ry * 2);
     } else {
       rectMode(CENTER);
       rect(selected.x, selected.y, selected.width, selected.height, 4);
@@ -155,6 +170,12 @@ function hitTest(x, y) {
     if (l.type === "circle") {
       const d = dist(x, y, l.x, l.y);
       if (d <= l.radius) return i;
+    } else if (l.type === "ellipse") {
+      const rx = Math.max(1, (l.baseSize || 150) * (l.sizeX || 1));
+      const ry = Math.max(1, (l.baseSize || 150) * (l.sizeY || 1));
+      const dx = (x - l.x) / rx;
+      const dy = (y - l.y) / ry;
+      if (dx * dx + dy * dy <= 1.0) return i;
     } else {
       const halfW = l.width / 2;
       const halfH = l.height / 2;
@@ -187,6 +208,25 @@ function createLightAt(x, y, type) {
       intensity: 400, // 0..INTENSITY_MAX (HDR)
       feather: 150, // px
       falloffK: 1.5,
+      opacity: 1.0,
+      rotation: 0.0,
+    };
+  }
+  if (type === "ellipse") {
+    return {
+      id,
+      type: "ellipse",
+      x,
+      y,
+      baseSize: 150,
+      sizeX: 1.2,
+      sizeY: 0.8,
+      color: "#ffffff",
+      colorLinear: hexToLinearRgb("#ffffff"),
+      intensity: 400,
+      feather: 150,
+      falloffK: 1.5,
+      opacity: 1.0,
       rotation: 0.0,
     };
   }
@@ -201,6 +241,7 @@ function createLightAt(x, y, type) {
     intensity: 400,
     feather: 150,
     falloffK: 1.5,
+    opacity: 1.0,
     rotation: 0.0,
   };
 }
@@ -254,10 +295,7 @@ function uploadUniforms() {
 
   // globals
   glShader.setUniform("u_exposure", appState.exposure);
-  glShader.setUniform(
-    "u_blendStrength",
-    constrain(appState.blendingStrength, 0, 2)
-  );
+  glShader.setUniform("u_falloffC", appState.falloffC);
   glShader.setUniform("u_colorSpace", appState.colorSpace);
 
   // compress active lights into uniform arrays
@@ -274,11 +312,12 @@ function uploadUniforms() {
   const rectSizeArr = new Float32Array(U_MAX_LIGHTS * 2);
   const falloffArr = new Float32Array(U_MAX_LIGHTS);
   const rotationArr = new Float32Array(U_MAX_LIGHTS);
+  const opacityArr = new Float32Array(U_MAX_LIGHTS);
 
   for (let i = 0; i < count; i++) {
     const l = lights[i];
     ensureLightCaches(l);
-    typeArr[i] = l.type === "rect" ? 1 : 0;
+    typeArr[i] = l.type === "rect" ? 1 : l.type === "ellipse" ? 2 : 0;
     // match gl_FragCoord (bottom-left origin)
     posArr[i * 2 + 0] = l.x;
     posArr[i * 2 + 1] = height - l.y;
@@ -286,25 +325,43 @@ function uploadUniforms() {
     colorArr[i * 3 + 1] = l.colorLinear.g;
     colorArr[i * 3 + 2] = l.colorLinear.b;
     intensityArr[i] = constrain(l.intensity ?? 0, 0, INTENSITY_MAX);
-    sizeArr[i] =
-      l.type === "circle"
-        ? Math.max(0, l.radius || 0)
-        : Math.max(0, Math.max(l.width || 0, l.height || 0) * 0.5);
-    rectSizeArr[i * 2 + 0] =
-      l.type === "rect"
-        ? Math.max(1, l.width || 1)
-        : l.radius
-        ? l.radius * 2
-        : 2;
-    rectSizeArr[i * 2 + 1] =
-      l.type === "rect"
-        ? Math.max(1, l.height || 1)
-        : l.radius
-        ? l.radius * 2
-        : 2;
-    featherArr[i] = Math.max(0, l.feather ?? 150);
+    let sizePx = 0;
+    let minHalfSize = 0;
+    if (l.type === "circle") {
+      sizePx = Math.max(0, l.radius || 0);
+      minHalfSize = sizePx;
+      rectSizeArr[i * 2 + 0] = (l.radius || 1) * 2;
+      rectSizeArr[i * 2 + 1] = (l.radius || 1) * 2;
+    } else if (l.type === "ellipse") {
+      const base = Math.max(1, l.baseSize || 150);
+      const sx = constrain(l.sizeX ?? 1.0, 0.1, 5);
+      const sy = constrain(l.sizeY ?? 1.0, 0.1, 5);
+      const rx = base * sx;
+      const ry = base * sy;
+      sizePx = Math.max(rx, ry);
+      minHalfSize = Math.min(rx, ry);
+      rectSizeArr[i * 2 + 0] = rx * 2;
+      rectSizeArr[i * 2 + 1] = ry * 2;
+    } else {
+      sizePx = Math.max(0, Math.max(l.width || 0, l.height || 0) * 0.5);
+      minHalfSize = Math.min((l.width || 0) * 0.5, (l.height || 0) * 0.5);
+      rectSizeArr[i * 2 + 0] = Math.max(1, l.width || 1);
+      rectSizeArr[i * 2 + 1] = Math.max(1, l.height || 1);
+    }
+    sizeArr[i] = sizePx;
+    const t = constrain((l.feather ?? 150) / FEATHER_UI_MAX, 0, 1);
+    const perceptual = Math.pow(t, 2.2);
+    const featherPx = perceptual * Math.min(FEATHER_PX_CAP, sizePx);
+    const capByInward = (minHalfSize * 0.9) / Math.max(IN_RATIO, 1e-6);
+    const MAX_SPILL = minHalfSize * 0.4; // tuning point
+    const capByOutward = MAX_SPILL / Math.max(OUT_RATIO, 1e-6);
+    featherArr[i] = Math.min(featherPx, capByInward, capByOutward);
     falloffArr[i] = constrain(l.falloffK ?? 1.5, 0.1, 8);
     rotationArr[i] = l.rotation ?? 0.0;
+    opacityArr[i] = constrain(l.opacity ?? 1.0, 0, 1);
+  }
+  if (DEBUG_LOGS) {
+    console.log("[opacityArr]", Array.from(opacityArr.slice(0, count)));
   }
 
   glShader.setUniform("u_lightType", typeArr);
@@ -316,7 +373,14 @@ function uploadUniforms() {
   glShader.setUniform("u_lightRectSize", rectSizeArr);
   glShader.setUniform("u_lightFalloffK", falloffArr);
   glShader.setUniform("u_lightRotation", rotationArr);
+  glShader.setUniform("u_lightOpacity", opacityArr);
+  glShader.setUniform("u_outRatio", OUT_RATIO);
 }
+
+// Checklist:
+// - Feather up reduces "shrink" and preserves presence.
+// - Extreme feather does not collapse into a dot (double-cap).
+// - OUT_RATIO change stays in sync (JS uniform + shader).
 
 // ============ Public API for UI ============
 function setBackgroundColor(hex) {
@@ -324,17 +388,17 @@ function setBackgroundColor(hex) {
 }
 
 function setCreationShape(shape) {
-  appState.creationShape = shape === "rect" ? "rect" : "circle";
-}
-
-function setBlendingStrength(value) {
-  // accepts 0..2 or 0..200 (UI percent)
-  if (value > 2) appState.blendingStrength = constrain(value / 100, 0, 2);
-  else appState.blendingStrength = constrain(value, 0, 2);
+  if (shape === "rect") appState.creationShape = "rect";
+  else if (shape === "ellipse") appState.creationShape = "ellipse";
+  else appState.creationShape = "circle";
 }
 
 function setExposure(v) {
   appState.exposure = Math.max(0.1, Math.min(5, v));
+}
+
+function setFalloffC(v) {
+  appState.falloffC = clamp(v, 0.2, 6.0, 2.0);
 }
 
 function updateSelectedLight(props) {
@@ -342,6 +406,13 @@ function updateSelectedLight(props) {
   if (!l) return;
   if (l.type === "circle") {
     if (typeof props.radius === "number") l.radius = Math.max(1, props.radius);
+  } else if (l.type === "ellipse") {
+    if (typeof props.baseSize === "number")
+      l.baseSize = Math.max(10, props.baseSize);
+    if (typeof props.sizeX === "number")
+      l.sizeX = constrain(props.sizeX, 0.1, 5);
+    if (typeof props.sizeY === "number")
+      l.sizeY = constrain(props.sizeY, 0.1, 5);
   } else {
     if (typeof props.width === "number") l.width = Math.max(1, props.width);
     if (typeof props.height === "number") l.height = Math.max(1, props.height);
@@ -352,6 +423,12 @@ function updateSelectedLight(props) {
   if (typeof props.falloffK === "number")
     l.falloffK = constrain(props.falloffK, 0.1, 8);
   if (typeof props.rotation === "number") l.rotation = props.rotation;
+  if (typeof props.opacity === "number") {
+    l.opacity = constrain(props.opacity, 0, 1);
+    if (DEBUG_LOGS) {
+      console.log("[opacity] selected=", l.id, "opacity=", l.opacity);
+    }
+  }
   if (typeof props.color === "string") {
     l.color = props.color;
     l.colorLinear = hexToLinearRgb(props.color);
@@ -386,15 +463,141 @@ function clearSelection() {
   emitSelectionChange();
 }
 
+// ============ Preset (Export/Import) ============
+function clamp(v, lo, hi, fallback) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(lo, Math.min(hi, n));
+}
+
+function sanitizeLight(raw) {
+  if (!raw || typeof raw !== "object") return null;
+
+  const type =
+    raw.type === "rect"
+      ? "rect"
+      : raw.type === "ellipse"
+      ? "ellipse"
+      : "circle";
+  const id =
+    typeof raw.id === "string" && raw.id.length > 0
+      ? raw.id
+      : "light-" + Math.random().toString(36).slice(2, 10);
+
+  const base = {
+    id,
+    type,
+    x: clamp(raw.x, 0, width, width / 2),
+    y: clamp(raw.y, 0, height, height / 2),
+    color: typeof raw.color === "string" ? raw.color : "#ffffff",
+    intensity: clamp(raw.intensity, 0, INTENSITY_MAX, 400),
+    feather: clamp(raw.feather, 0, FEATHER_UI_MAX, 150),
+    falloffK: clamp(raw.falloffK, 0.1, 8, 1.5),
+    opacity: clamp(raw.opacity, 0, 1, 1),
+    rotation: clamp(raw.rotation, -Math.PI, Math.PI, 0),
+  };
+
+  if (type === "rect") {
+    base.width = clamp(raw.width, 10, 1600, 220);
+    base.height = clamp(raw.height, 10, 1200, 160);
+  } else if (type === "ellipse") {
+    base.baseSize = clamp(raw.baseSize, 10, 1200, 150);
+    base.sizeX = clamp(raw.sizeX, 0.1, 5, 1);
+    base.sizeY = clamp(raw.sizeY, 0.1, 5, 1);
+  } else {
+    base.radius = clamp(raw.radius, 10, 1200, 150);
+  }
+
+  base.colorLinear = hexToLinearRgb(base.color);
+  return base;
+}
+
+function serializePreset() {
+  const s = appState;
+  return {
+    version: 1,
+    backgroundColor: s.backgroundColor,
+    creationShape: s.creationShape,
+    exposure: s.exposure,
+    falloffC: s.falloffC,
+    colorSpace: s.colorSpace,
+    lights: (s.lights || []).map((l) => {
+      const out = {
+        id: l.id,
+        type: l.type,
+        x: l.x,
+        y: l.y,
+        color: l.color,
+        intensity: l.intensity,
+        feather: l.feather,
+        falloffK: l.falloffK,
+        opacity: l.opacity,
+        rotation: l.rotation,
+      };
+      if (l.type === "rect") {
+        out.width = l.width;
+        out.height = l.height;
+      } else if (l.type === "ellipse") {
+        out.baseSize = l.baseSize;
+        out.sizeX = l.sizeX;
+        out.sizeY = l.sizeY;
+      } else {
+        out.radius = l.radius;
+      }
+      return out;
+    }),
+  };
+}
+
+function applyPreset(preset) {
+  if (!preset || typeof preset !== "object") return false;
+
+  appState.backgroundColor =
+    typeof preset.backgroundColor === "string"
+      ? preset.backgroundColor
+      : appState.backgroundColor;
+
+  appState.creationShape =
+    preset.creationShape === "rect"
+      ? "rect"
+      : preset.creationShape === "ellipse"
+      ? "ellipse"
+      : "circle";
+  appState.exposure = clamp(preset.exposure, 0.1, 5, appState.exposure);
+  appState.falloffC = clamp(preset.falloffC, 0.2, 6.0, appState.falloffC);
+  appState.colorSpace = preset.colorSpace === 0 ? 0 : 1;
+
+  const src = Array.isArray(preset.lights) ? preset.lights : [];
+  const sanitized = [];
+  for (let i = 0; i < Math.min(src.length, U_MAX_LIGHTS); i++) {
+    const l = sanitizeLight(src[i]);
+    if (l) sanitized.push(l);
+  }
+  appState.lights = sanitized;
+
+  const selectedId =
+    typeof preset.selectedLightId === "string" ? preset.selectedLightId : null;
+  appState.selectedLightId =
+    selectedId && appState.lights.some((l) => l.id === selectedId)
+      ? selectedId
+      : null;
+
+  appState.dragging = false;
+  emitSelectionChange();
+  return true;
+}
+
 // expose API
 window.app = {
   setBackgroundColor,
   setCreationShape,
-  setBlendingStrength,
   setExposure,
+  setFalloffC,
   updateSelectedLight,
   getSelectedLight,
   getState,
   deleteSelectedLight,
   clearSelection,
+  exportPreset: () => serializePreset(),
+  importPreset: (presetObj) => applyPreset(presetObj),
 };
