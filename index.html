@@ -50,6 +50,10 @@
             ><input type="radio" name="shape" value="circle" checked />
             원형</label
           >
+          <label
+            ><input type="radio" name="shape" value="ellipse" />
+            타원</label
+          >
           <label><input type="radio" name="shape" value="rect" /> 사각형</label>
         </div>
         <p class="hint">캔버스를 클릭하면 현재 모양으로 조명이 생성됩니다.</p>
@@ -123,6 +127,47 @@
                 />
               </label>
               <output id="heightValue">160</output>
+            </div>
+          </div>
+
+          <div id="ellipse-controls" class="col" style="display: none">
+            <div class="row">
+              <label class="grow">
+                <span>Size X (ratio)</span>
+                <input
+                  id="sizeXSlider"
+                  type="range"
+                  min="0.1"
+                  max="3"
+                  step="0.01"
+                  value="1"
+                  disabled
+                />
+              </label>
+              <output id="sizeXValue">1.00</output>
+            </div>
+            <div class="row">
+              <label class="grow">
+                <span>Size Y (ratio)</span>
+                <input
+                  id="sizeYSlider"
+                  type="range"
+                  min="0.1"
+                  max="3"
+                  step="0.01"
+                  value="1"
+                  disabled
+                />
+              </label>
+              <output id="sizeYValue">1.00</output>
+            </div>
+            <div class="row" style="gap: 8px">
+              <button id="makeCircleByXBtn" type="button" disabled>
+                X=Y (use X)
+              </button>
+              <button id="makeCircleByYBtn" type="button" disabled>
+                X=Y (use Y)
+              </button>
             </div>
           </div>
 

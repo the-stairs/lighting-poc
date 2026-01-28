@@ -18,9 +18,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const circleSizeGroup = $("#circle-size");
   const rectSizeGroup = $("#rect-size");
+  const ellipseControls = $("#ellipse-controls");
 
   const sizeSlider = $("#sizeSlider");
   const sizeValue = $("#sizeValue");
+  const sizeXSlider = $("#sizeXSlider");
+  const sizeXValue = $("#sizeXValue");
+  const sizeYSlider = $("#sizeYSlider");
+  const sizeYValue = $("#sizeYValue");
+  const makeCircleByXBtn = $("#makeCircleByXBtn");
+  const makeCircleByYBtn = $("#makeCircleByYBtn");
   const widthSlider = $("#widthSlider");
   const widthValue = $("#widthValue");
   const heightSlider = $("#heightSlider");
@@ -132,6 +139,10 @@ document.addEventListener("DOMContentLoaded", () => {
       controls.setAttribute("aria-disabled", enabled ? "false" : "true");
       [
         sizeSlider,
+        sizeXSlider,
+        sizeYSlider,
+        makeCircleByXBtn,
+        makeCircleByYBtn,
         widthSlider,
         heightSlider,
         brightnessSlider,
@@ -157,6 +168,14 @@ document.addEventListener("DOMContentLoaded", () => {
       const cap =
         light.type === "circle"
           ? Math.max(0, light.radius || 0)
+          : light.type === "ellipse"
+          ? Math.max(
+              0,
+              Math.max(
+                (light.baseSize || 150) * (light.sizeX || 1),
+                (light.baseSize || 150) * (light.sizeY || 1)
+              )
+            )
           : Math.max(0, Math.max(light.width || 0, light.height || 0) * 0.5);
       const t = clamp01(ui / 800, 0);
       const perceptual = Math.pow(t, 2.2);
@@ -173,14 +192,21 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!light) {
         circleSizeGroup.style.display = ""; // .row -> display:flex (CSS)
         rectSizeGroup.style.display = "none";
+        if (ellipseControls) ellipseControls.style.display = "none";
         return;
       }
       if (light.type === "circle") {
         circleSizeGroup.style.display = ""; // show circle controls
         rectSizeGroup.style.display = "none"; // hide rect controls
+        if (ellipseControls) ellipseControls.style.display = "none";
+      } else if (light.type === "ellipse") {
+        circleSizeGroup.style.display = "";
+        rectSizeGroup.style.display = "none";
+        if (ellipseControls) ellipseControls.style.display = "flex";
       } else {
         circleSizeGroup.style.display = "none"; // hide circle controls
         rectSizeGroup.style.display = "flex"; // force show (override #rect-size{display:none})
+        if (ellipseControls) ellipseControls.style.display = "none";
       }
     }
 
@@ -195,6 +221,16 @@ document.addEventListener("DOMContentLoaded", () => {
       if (light.type === "circle") {
         sizeSlider.value = Math.round(light.radius);
         sizeValue.textContent = sizeSlider.value;
+      } else if (light.type === "ellipse") {
+        const base = Number(light.baseSize) || 150;
+        const sx = Number(light.sizeX) || 1;
+        const sy = Number(light.sizeY) || 1;
+        sizeSlider.value = Math.round(base);
+        sizeValue.textContent = sizeSlider.value;
+        if (sizeXSlider) sizeXSlider.value = sx.toFixed(2);
+        if (sizeXValue) sizeXValue.textContent = sx.toFixed(2);
+        if (sizeYSlider) sizeYSlider.value = sy.toFixed(2);
+        if (sizeYValue) sizeYValue.textContent = sy.toFixed(2);
       } else {
         widthSlider.value = Math.round(light.width);
         widthValue.textContent = widthSlider.value;
@@ -226,8 +262,48 @@ document.addEventListener("DOMContentLoaded", () => {
     sizeSlider.addEventListener("input", (e) => {
       const v = Number(e.target.value);
       sizeValue.textContent = v;
-      window.app.updateSelectedLight({ radius: v });
+      const l = window.app.getSelectedLight();
+      if (!l) return;
+      if (l.type === "circle") {
+        window.app.updateSelectedLight({ radius: v });
+      } else if (l.type === "ellipse") {
+        window.app.updateSelectedLight({ baseSize: v });
+      }
     });
+    if (sizeXSlider) {
+      sizeXSlider.addEventListener("input", (e) => {
+        const v = Math.max(0.1, Math.min(3, Number(e.target.value)));
+        if (sizeXValue) sizeXValue.textContent = v.toFixed(2);
+        const l = window.app.getSelectedLight();
+        if (!l || l.type !== "ellipse") return;
+        window.app.updateSelectedLight({ sizeX: v });
+      });
+    }
+    if (sizeYSlider) {
+      sizeYSlider.addEventListener("input", (e) => {
+        const v = Math.max(0.1, Math.min(3, Number(e.target.value)));
+        if (sizeYValue) sizeYValue.textContent = v.toFixed(2);
+        const l = window.app.getSelectedLight();
+        if (!l || l.type !== "ellipse") return;
+        window.app.updateSelectedLight({ sizeY: v });
+      });
+    }
+    if (makeCircleByXBtn) {
+      makeCircleByXBtn.addEventListener("click", () => {
+        const l = window.app.getSelectedLight();
+        if (!l || l.type !== "ellipse") return;
+        const sx = Number(l.sizeX) || 1;
+        window.app.updateSelectedLight({ sizeY: sx });
+      });
+    }
+    if (makeCircleByYBtn) {
+      makeCircleByYBtn.addEventListener("click", () => {
+        const l = window.app.getSelectedLight();
+        if (!l || l.type !== "ellipse") return;
+        const sy = Number(l.sizeY) || 1;
+        window.app.updateSelectedLight({ sizeX: sy });
+      });
+    }
     widthSlider.addEventListener("input", (e) => {
       const v = Number(e.target.value);
       widthValue.textContent = v;

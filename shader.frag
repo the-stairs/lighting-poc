@@ -81,12 +81,19 @@ void main() {
       // circle core: radius R
       float r = distance(frag, pos);
       edgeDist = r - R;
-    } else {
+    } else if (t == 1) {
       // rectangle core: inside box is core (use SDF)
       vec2 p = frag - pos;
       vec2 pl = rotate2D(p, -rot);
       float dBox = sdBox(pl, 0.5 * rectSize);
       edgeDist = dBox; // negative inside, zero at edge, positive outside
+    } else {
+      // ellipse core: rectSize holds diameter (x,y)
+      vec2 rad = 0.5 * rectSize;
+      rad = max(rad, vec2(1.0));
+      vec2 q = (frag - pos) / rad;
+      float d = length(q);
+      edgeDist = (d - 1.0) * max(rad.x, rad.y);
     }
 
     // apply falloff only outside the hotspot core
