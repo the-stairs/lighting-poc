@@ -82,6 +82,17 @@ label span {
 input[type="range"] {
   width: 100%;
 }
+input[type="text"] {
+  width: 100%;
+  background: #111;
+  color: var(--text);
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+input[type="text"]::placeholder {
+  color: #6b7280;
+}
 output {
   min-width: 48px;
   text-align: right;

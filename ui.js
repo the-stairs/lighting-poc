@@ -47,6 +47,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const lightColor = $("#lightColor");
   const deleteLightBtn = $("#deleteLightBtn");
   const exportBtn = $("#exportPresetBtn");
+  const presetFileName = $("#presetFileName");
   const importBtn = $("#importPresetBtn");
   const importFile = $("#importPresetFile");
 
@@ -70,22 +71,66 @@ document.addEventListener("DOMContentLoaded", () => {
       falloffCSlider.value = v.toFixed(1);
       falloffCValue.textContent = v.toFixed(1);
     }
+    function makeDefaultPresetFilename() {
+      return `lighting-preset_${new Date()
+        .toISOString()
+        .replace(/[:.]/g, "-")}.json`;
+    }
+
+    function sanitizeFilename(raw) {
+      const name = String(raw ?? "").trim();
+      if (!name) return ""; // 빈칸이면 디폴트 fallback
+
+      // Windows/브라우저에서 문제 되는 문자들 제거/치환
+      const safe = name
+        .replace(/[/\\?%*:|"<>]/g, "-")
+        .replace(/\s+/g, " ")
+        .replace(/[. ]+$/g, ""); // 끝에 점/공백 제거
+
+      return safe;
+    }
+
     // Preset: Export
     if (exportBtn) {
       exportBtn.addEventListener("click", () => {
+        if (!window.app || typeof window.app.exportPreset !== "function") {
+          alert("앱이 아직 준비되지 않았습니다. 잠시 후 다시 시도해주세요.");
+          return;
+        }
+
         const preset = window.app.exportPreset();
         const json = JSON.stringify(preset, null, 2);
         const blob = new Blob([json], { type: "application/json" });
         const url = URL.createObjectURL(blob);
+
+        const rawName = presetFileName ? presetFileName.value : "";
+        const userTyped = String(rawName ?? "").trim().length > 0;
+        let filename = sanitizeFilename(rawName);
+
+        // ✅ 빈칸이면 디폴트 파일명
+        if (!filename) {
+          if (userTyped) {
+            console.warn("Invalid filename. Falling back to default.");
+          }
+          filename = makeDefaultPresetFilename();
+        }
+        // ✅ 확장자 자동 보정
+        if (!filename.toLowerCase().endsWith(".json")) filename += ".json";
+
         const a = document.createElement("a");
         a.href = url;
-        a.download = `lighting-preset_${new Date()
-          .toISOString()
-          .replace(/[:.]/g, "-")}.json`;
+        a.download = filename;
+
         document.body.appendChild(a);
         a.click();
         a.remove();
         URL.revokeObjectURL(url);
+      });
+    }
+
+    if (presetFileName && exportBtn) {
+      presetFileName.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") exportBtn.click();
       });
     }
 
@@ -187,9 +232,15 @@ document.addEventListener("DOMContentLoaded", () => {
     function formatFeatherLabel(uiValue, light) {
       const ui = Number(uiValue);
       if (!Number.isFinite(ui))
-        return { text: "--px", title: "feather ui=-- => applied=--px (cap=--)" };
+        return {
+          text: "--px",
+          title: "feather ui=-- => applied=--px (cap=--)",
+        };
       if (!light)
-        return { text: `${Math.round(ui)}px`, title: `feather ui=${ui} => applied=--px (cap=--)` };
+        return {
+          text: `${Math.round(ui)}px`,
+          title: `feather ui=${ui} => applied=--px (cap=--)`,
+        };
       const cap =
         light.type === "circle"
           ? Math.max(0, light.radius || 0)

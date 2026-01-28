@@ -28,6 +28,17 @@
             style="display: none"
           />
         </div>
+        <div class="row">
+          <label class="grow">
+            <span>Export 파일명 (빈칸이면 자동)</span>
+            <input
+              id="presetFileName"
+              type="text"
+              placeholder="예: studio_A_softbox_v2"
+              autocomplete="off"
+            />
+          </label>
+        </div>
         <p class="hint">현재 설정을 저장/불러오기 합니다.</p>
       </section>
 
@@ -51,8 +62,7 @@
             원형</label
           >
           <label
-            ><input type="radio" name="shape" value="ellipse" />
-            타원</label
+            ><input type="radio" name="shape" value="ellipse" /> 타원</label
           >
           <label><input type="radio" name="shape" value="rect" /> 사각형</label>
         </div>
