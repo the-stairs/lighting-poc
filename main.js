@@ -391,6 +391,110 @@ function clearSelection() {
   emitSelectionChange();
 }
 
+// ============ Preset (Export/Import) ============
+function clamp(v, lo, hi, fallback) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(lo, Math.min(hi, n));
+}
+
+function sanitizeLight(raw) {
+  if (!raw || typeof raw !== "object") return null;
+
+  const type = raw.type === "rect" ? "rect" : "circle";
+  const id =
+    typeof raw.id === "string" && raw.id.length > 0
+      ? raw.id
+      : "light-" + Math.random().toString(36).slice(2, 10);
+
+  const base = {
+    id,
+    type,
+    x: clamp(raw.x, 0, width, width / 2),
+    y: clamp(raw.y, 0, height, height / 2),
+    color: typeof raw.color === "string" ? raw.color : "#ffffff",
+    intensity: clamp(raw.intensity, 0, INTENSITY_MAX, 400),
+    feather: clamp(raw.feather, 0, FEATHER_UI_MAX, 150),
+    falloffK: clamp(raw.falloffK, 0.1, 8, 1.5),
+    opacity: clamp(raw.opacity, 0, 1, 1),
+    rotation: clamp(raw.rotation, -Math.PI, Math.PI, 0),
+  };
+
+  if (type === "rect") {
+    base.width = clamp(raw.width, 10, 1600, 220);
+    base.height = clamp(raw.height, 10, 1200, 160);
+  } else {
+    base.radius = clamp(raw.radius, 10, 1200, 150);
+  }
+
+  base.colorLinear = hexToLinearRgb(base.color);
+  return base;
+}
+
+function serializePreset() {
+  const s = appState;
+  return {
+    version: 1,
+    backgroundColor: s.backgroundColor,
+    creationShape: s.creationShape,
+    exposure: s.exposure,
+    colorSpace: s.colorSpace,
+    lights: (s.lights || []).map((l) => {
+      const out = {
+        id: l.id,
+        type: l.type,
+        x: l.x,
+        y: l.y,
+        color: l.color,
+        intensity: l.intensity,
+        feather: l.feather,
+        falloffK: l.falloffK,
+        opacity: l.opacity,
+        rotation: l.rotation,
+      };
+      if (l.type === "rect") {
+        out.width = l.width;
+        out.height = l.height;
+      } else {
+        out.radius = l.radius;
+      }
+      return out;
+    }),
+  };
+}
+
+function applyPreset(preset) {
+  if (!preset || typeof preset !== "object") return false;
+
+  appState.backgroundColor =
+    typeof preset.backgroundColor === "string"
+      ? preset.backgroundColor
+      : appState.backgroundColor;
+
+  appState.creationShape = preset.creationShape === "rect" ? "rect" : "circle";
+  appState.exposure = clamp(preset.exposure, 0.1, 5, appState.exposure);
+  appState.colorSpace = preset.colorSpace === 0 ? 0 : 1;
+
+  const src = Array.isArray(preset.lights) ? preset.lights : [];
+  const sanitized = [];
+  for (let i = 0; i < Math.min(src.length, U_MAX_LIGHTS); i++) {
+    const l = sanitizeLight(src[i]);
+    if (l) sanitized.push(l);
+  }
+  appState.lights = sanitized;
+
+  const selectedId =
+    typeof preset.selectedLightId === "string" ? preset.selectedLightId : null;
+  appState.selectedLightId =
+    selectedId && appState.lights.some((l) => l.id === selectedId)
+      ? selectedId
+      : null;
+
+  appState.dragging = false;
+  emitSelectionChange();
+  return true;
+}
+
 // expose API
 window.app = {
   setBackgroundColor,
@@ -401,4 +505,6 @@ window.app = {
   getState,
   deleteSelectedLight,
   clearSelection,
+  exportPreset: () => serializePreset(),
+  importPreset: (presetObj) => applyPreset(presetObj),
 };

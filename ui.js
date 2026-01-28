@@ -36,6 +36,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const falloffValue = $("#falloffValue");
   const lightColor = $("#lightColor");
   const deleteLightBtn = $("#deleteLightBtn");
+  const exportBtn = $("#exportPresetBtn");
+  const importBtn = $("#importPresetBtn");
+  const importFile = $("#importPresetFile");
 
   // shape radios
   const shapeRadios = document.querySelectorAll('input[name="shape"]');
@@ -49,6 +52,46 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   ensureAppReady(() => {
+    // Preset: Export
+    if (exportBtn) {
+      exportBtn.addEventListener("click", () => {
+        const preset = window.app.exportPreset();
+        const json = JSON.stringify(preset, null, 2);
+        const blob = new Blob([json], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `lighting-preset_${new Date()
+          .toISOString()
+          .replace(/[:.]/g, "-")}.json`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      });
+    }
+
+    // Preset: Import (open file picker)
+    if (importBtn && importFile) {
+      importBtn.addEventListener("click", () => importFile.click());
+      importFile.addEventListener("change", async (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+
+        try {
+          const text = await file.text();
+          const obj = JSON.parse(text);
+          const ok = window.app.importPreset(obj);
+          if (!ok) alert("프리셋 형식이 올바르지 않습니다.");
+        } catch (err) {
+          console.error(err);
+          alert("프리셋을 불러오지 못했습니다. JSON 형식인지 확인하세요.");
+        } finally {
+          e.target.value = "";
+        }
+      });
+    }
+
     // Background controls
     bgBlack.addEventListener("click", () => {
       bgColor.value = "#000000";
