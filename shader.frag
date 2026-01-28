@@ -34,10 +34,19 @@ vec2 rotate2D(vec2 p, float r) {
   return mat2(c, -s, s, c) * p;
 }
 
-// signed distance to axis-aligned box of half-size b
-float sdBox(vec2 p, vec2 b) {
-  vec2 d = abs(p) - b;
-  return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);
+// profile + falloff t from edge distance
+vec2 profileAndTFalloff(float edgeDist, float start, float end) {
+  float denom = max(end - start, 1e-6);
+  float t = clamp((edgeDist - start) / denom, 0.0, 1.0);
+  float profile;
+  if (edgeDist >= end) {
+    profile = 0.0;
+  } else if (edgeDist <= start) {
+    profile = 1.0;
+  } else {
+    profile = 1.0 - smoothstep(0.0, 1.0, t);
+  }
+  return vec2(profile, t);
 }
 
 vec3 toneMapAndToSRGB(vec3 linearColor, float exposure) {
@@ -77,46 +86,46 @@ void main() {
     float R = sizePx;
     float F = max(featherPx, 1e-6);
 
-    // edge distance: <=0 inside core, >0 outside
-    float edgeDist;
-    if (t == 0) {
-      // circle core: radius R
-      float r = distance(frag, pos);
-      edgeDist = r - R;
-    } else if (t == 1) {
-      // rectangle core: inside box is core (use SDF)
-      vec2 p = frag - pos;
-      vec2 pl = rotate2D(p, -rot);
-      float dBox = sdBox(pl, 0.5 * rectSize);
-      edgeDist = dBox; // negative inside, zero at edge, positive outside
-    } else {
-      // ellipse core: rectSize holds diameter (x,y)
-      vec2 rad = 0.5 * rectSize;
-      rad = max(rad, vec2(1.0));
-      vec2 q = (frag - pos) / rad;
-      float d = length(q);
-      edgeDist = (d - 1.0) * max(rad.x, rad.y);
-    }
-
     // hybrid feather: inward + outward by ratio
     float inRatio = 1.0 - u_outRatio;
     float profile;
     float start = -inRatio * F;
     float end = u_outRatio * F;
-    if (edgeDist >= end) {
-      profile = 0.0; // outside is always 0
-    } else if (edgeDist <= start) {
-      profile = 1.0; // inner flat region
+    float tFalloff;
+    if (t == 1) {
+      // rectangle: separable feather to avoid diagonal seam
+      vec2 p = frag - pos;
+      vec2 pl = rotate2D(p, -rot);
+      vec2 halfSize = 0.5 * rectSize;
+      float dx = abs(pl.x) - halfSize.x;
+      float dy = abs(pl.y) - halfSize.y;
+      vec2 px = profileAndTFalloff(dx, start, end);
+      vec2 py = profileAndTFalloff(dy, start, end);
+      profile = px.x * py.x;
+      tFalloff = clamp(length(vec2(px.y, py.y)) / 1.41421356237, 0.0, 1.0);
     } else {
-      float t = (edgeDist - start) / (end - start); // start=>0, end=>1
-      profile = 1.0 - smoothstep(0.0, 1.0, t);
+      // edge distance: <=0 inside core, >0 outside
+      float edgeDist;
+      if (t == 0) {
+        // circle core: radius R
+        float r = distance(frag, pos);
+        edgeDist = r - R;
+      } else {
+        // ellipse core: rectSize holds diameter (x,y)
+        vec2 rad = 0.5 * rectSize;
+        rad = max(rad, vec2(1.0));
+        vec2 q = (frag - pos) / rad;
+        float d = length(q);
+        edgeDist = (d - 1.0) * max(rad.x, rad.y);
+      }
+      vec2 pt = profileAndTFalloff(edgeDist, start, end);
+      profile = pt.x;
+      tFalloff = pt.y;
     }
     const float EDGE_GAMMA = 1.6; // perceptual edge lock (softer rolloff)
     profile = pow(profile, EDGE_GAMMA);
 
     // falloff uses the same normalized space as profile for consistency
-    float denom = max(end - start, 1e-6);
-    float tFalloff = clamp((edgeDist - start) / denom, 0.0, 1.0);
     float falloff = 1.0 / (1.0 + pow(tFalloff, k) * u_falloffC);
 
     // uniform intensity; profile and falloff shape the edge
