@@ -5,11 +5,12 @@ let glShader;
 
 const U_MAX_LIGHTS = 64;
 const INTENSITY_MAX = 2000; // HDR scale per spec
+const FEATHER_UI_MAX = 800;
+const FEATHER_PX_CAP = 800;
 
 const appState = {
   backgroundColor: "#000000", // sRGB hex
   creationShape: "circle", // 'circle' | 'rect'
-  blendingStrength: 1.0, // 0..2 (UI에서 0..2로 매핑 예정, 현재는 0..1 입력 허용)
   exposure: 1.2,
   colorSpace: 1, // 0: linear input, 1: sRGB input (palette)
   lights: [],
@@ -187,6 +188,7 @@ function createLightAt(x, y, type) {
       intensity: 400, // 0..INTENSITY_MAX (HDR)
       feather: 150, // px
       falloffK: 1.5,
+      opacity: 1.0,
       rotation: 0.0,
     };
   }
@@ -201,6 +203,7 @@ function createLightAt(x, y, type) {
     intensity: 400,
     feather: 150,
     falloffK: 1.5,
+    opacity: 1.0,
     rotation: 0.0,
   };
 }
@@ -254,10 +257,6 @@ function uploadUniforms() {
 
   // globals
   glShader.setUniform("u_exposure", appState.exposure);
-  glShader.setUniform(
-    "u_blendStrength",
-    constrain(appState.blendingStrength, 0, 2)
-  );
   glShader.setUniform("u_colorSpace", appState.colorSpace);
 
   // compress active lights into uniform arrays
@@ -274,6 +273,7 @@ function uploadUniforms() {
   const rectSizeArr = new Float32Array(U_MAX_LIGHTS * 2);
   const falloffArr = new Float32Array(U_MAX_LIGHTS);
   const rotationArr = new Float32Array(U_MAX_LIGHTS);
+  const opacityArr = new Float32Array(U_MAX_LIGHTS);
 
   for (let i = 0; i < count; i++) {
     const l = lights[i];
@@ -286,10 +286,11 @@ function uploadUniforms() {
     colorArr[i * 3 + 1] = l.colorLinear.g;
     colorArr[i * 3 + 2] = l.colorLinear.b;
     intensityArr[i] = constrain(l.intensity ?? 0, 0, INTENSITY_MAX);
-    sizeArr[i] =
+    const sizePx =
       l.type === "circle"
         ? Math.max(0, l.radius || 0)
         : Math.max(0, Math.max(l.width || 0, l.height || 0) * 0.5);
+    sizeArr[i] = sizePx;
     rectSizeArr[i * 2 + 0] =
       l.type === "rect"
         ? Math.max(1, l.width || 1)
@@ -302,10 +303,15 @@ function uploadUniforms() {
         : l.radius
         ? l.radius * 2
         : 2;
-    featherArr[i] = Math.max(0, l.feather ?? 150);
+    const t = constrain((l.feather ?? 150) / FEATHER_UI_MAX, 0, 1);
+    const perceptual = Math.pow(t, 2.2);
+    const featherPx = perceptual * Math.min(FEATHER_PX_CAP, sizePx);
+    featherArr[i] = featherPx;
     falloffArr[i] = constrain(l.falloffK ?? 1.5, 0.1, 8);
     rotationArr[i] = l.rotation ?? 0.0;
+    opacityArr[i] = constrain(l.opacity ?? 1.0, 0, 1);
   }
+  console.log("[opacityArr]", Array.from(opacityArr.slice(0, count)));
 
   glShader.setUniform("u_lightType", typeArr);
   glShader.setUniform("u_lightPos", posArr);
@@ -316,6 +322,7 @@ function uploadUniforms() {
   glShader.setUniform("u_lightRectSize", rectSizeArr);
   glShader.setUniform("u_lightFalloffK", falloffArr);
   glShader.setUniform("u_lightRotation", rotationArr);
+  glShader.setUniform("u_lightOpacity", opacityArr);
 }
 
 // ============ Public API for UI ============
@@ -325,12 +332,6 @@ function setBackgroundColor(hex) {
 
 function setCreationShape(shape) {
   appState.creationShape = shape === "rect" ? "rect" : "circle";
-}
-
-function setBlendingStrength(value) {
-  // accepts 0..2 or 0..200 (UI percent)
-  if (value > 2) appState.blendingStrength = constrain(value / 100, 0, 2);
-  else appState.blendingStrength = constrain(value, 0, 2);
 }
 
 function setExposure(v) {
@@ -352,6 +353,10 @@ function updateSelectedLight(props) {
   if (typeof props.falloffK === "number")
     l.falloffK = constrain(props.falloffK, 0.1, 8);
   if (typeof props.rotation === "number") l.rotation = props.rotation;
+  if (typeof props.opacity === "number") {
+    l.opacity = constrain(props.opacity, 0, 1);
+    console.log("[opacity] selected=", l.id, "opacity=", l.opacity);
+  }
   if (typeof props.color === "string") {
     l.color = props.color;
     l.colorLinear = hexToLinearRgb(props.color);
@@ -390,7 +395,6 @@ function clearSelection() {
 window.app = {
   setBackgroundColor,
   setCreationShape,
-  setBlendingStrength,
   setExposure,
   updateSelectedLight,
   getSelectedLight,

@@ -4,13 +4,14 @@ precision highp float;
 
 #define U_MAX_LIGHTS 64
 
+const int DEBUG_OPACITY_VIS = 0; // 1: show opacity visualization
+
 // from vertex shader
 varying vec2 vUv;
 
 uniform vec2 u_resolution;
 uniform vec3 u_bgColorLinear;
 uniform float u_exposure;
-uniform float u_blendStrength;
 uniform int u_numLights;
 uniform int u_colorSpace; // 0: linear, 1: sRGB input on CPU side (kept for future)
 
@@ -23,6 +24,7 @@ uniform float u_lightFeather[U_MAX_LIGHTS];
 uniform vec2 u_lightRectSize[U_MAX_LIGHTS];
 uniform float u_lightFalloffK[U_MAX_LIGHTS];
 uniform float u_lightRotation[U_MAX_LIGHTS];
+uniform float u_lightOpacity[U_MAX_LIGHTS];
 
 // rotate point p by angle r (radians)
 vec2 rotate2D(vec2 p, float r) {
@@ -67,6 +69,8 @@ void main() {
     vec2 rectSize = max(u_lightRectSize[i], vec2(1.0));
     float k = max(u_lightFalloffK[i], 0.0001);
     float rot = u_lightRotation[i];
+    float opacity = clamp(u_lightOpacity[i], 0.0, 1.0);
+    float op = pow(opacity, 2.2);
 
     float R = sizePx;
     float F = max(featherPx, 0.0);
@@ -103,13 +107,18 @@ void main() {
     }
 
     // uniform intensity; no falloff in core or outside
-    float intensity = intensityHdr;
-    vec3 contrib = colorL * intensity * profile;
-    lightAccum += contrib;
+    float intensity = intensityHdr / 2000.0;
+    vec3 baseContrib = colorL * intensity * profile;
+    if (op <= 0.0) continue;
+    if (DEBUG_OPACITY_VIS == 1) {
+      lightAccum += vec3(op);
+    } else {
+      lightAccum += baseContrib * op;
+    }
   }
 
-  // apply blend strength to lights only, then add background
-  vec3 accumLinear = u_bgColorLinear + lightAccum * u_blendStrength;
+  // add background in linear space
+  vec3 accumLinear = u_bgColorLinear + lightAccum;
 
   vec3 srgb = toneMapAndToSRGB(accumLinear, u_exposure);
   gl_FragColor = vec4(srgb, 1.0);

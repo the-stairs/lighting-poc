@@ -10,8 +10,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const bgGray = $("#bg-gray");
   const bgColor = $("#bgColor");
 
-  const blendingSlider = $("#blendingSlider");
-  const blendingValue = $("#blendingValue");
   const exposureSlider = $("#exposureSlider");
   const exposureValue = $("#exposureValue");
 
@@ -29,6 +27,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const heightValue = $("#heightValue");
   const brightnessSlider = $("#brightnessSlider");
   const brightnessValue = $("#brightnessValue");
+  const opacitySlider = $("#opacitySlider");
+  const opacityValue = $("#opacityValue");
+  const opacityDebug = $("#opacityDebug");
   const softnessSlider = $("#softnessSlider");
   const softnessValue = $("#softnessValue");
   const falloffSlider = $("#falloffSlider");
@@ -68,13 +69,6 @@ document.addEventListener("DOMContentLoaded", () => {
       })
     );
 
-    // Blending strength
-    blendingSlider.addEventListener("input", (e) => {
-      const val = Number(e.target.value);
-      blendingValue.textContent = `${val}%`;
-      window.app.setBlendingStrength(val);
-    });
-
     // Exposure
     exposureSlider.addEventListener("input", (e) => {
       const v = Number(e.target.value);
@@ -85,6 +79,12 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // Selected light controls
+    function clamp01(value, fallback = 1) {
+      const v = Number(value);
+      if (!Number.isFinite(v)) return fallback;
+      return Math.max(0, Math.min(1, v));
+    }
+
     function setControlsEnabled(enabled) {
       controls.setAttribute("aria-disabled", enabled ? "false" : "true");
       [
@@ -92,6 +92,7 @@ document.addEventListener("DOMContentLoaded", () => {
         widthSlider,
         heightSlider,
         brightnessSlider,
+        opacitySlider,
         softnessSlider,
         lightColor,
         deleteLightBtn,
@@ -99,6 +100,30 @@ document.addEventListener("DOMContentLoaded", () => {
         if (el) el.disabled = !enabled;
       });
       noSel.style.display = enabled ? "none" : "block";
+      if (!enabled && opacityDebug) {
+        opacityDebug.textContent = "selected light opacity = --";
+      }
+    }
+
+    function formatFeatherLabel(uiValue, light) {
+      const ui = Number(uiValue);
+      if (!Number.isFinite(ui))
+        return { text: "--px", title: "feather ui=-- => applied=--px (cap=--)" };
+      if (!light)
+        return { text: `${Math.round(ui)}px`, title: `feather ui=${ui} => applied=--px (cap=--)` };
+      const cap =
+        light.type === "circle"
+          ? Math.max(0, light.radius || 0)
+          : Math.max(0, Math.max(light.width || 0, light.height || 0) * 0.5);
+      const t = clamp01(ui / 800, 0);
+      const perceptual = Math.pow(t, 2.2);
+      const applied = perceptual * Math.min(800, cap);
+      return {
+        text: `${Math.round(applied)}px`,
+        title: `feather ui=${Math.round(ui)} => applied=${Math.round(
+          applied
+        )}px (cap=${Math.round(cap)})`,
+      };
     }
 
     function updateVisibilityByType(light) {
@@ -139,8 +164,16 @@ document.addEventListener("DOMContentLoaded", () => {
       const uiVal = Math.round(Math.pow(it, 1.0 / 2.2) * 2000);
       brightnessSlider.value = uiVal;
       brightnessValue.textContent = uiVal;
+      const op = clamp01(light.opacity, 1);
+      opacitySlider.value = op.toFixed(2);
+      opacityValue.textContent = op.toFixed(2);
+      if (opacityDebug) {
+        opacityDebug.textContent = `selected light opacity = ${op.toFixed(2)}`;
+      }
       softnessSlider.value = Math.round(light.feather || 150);
-      softnessValue.textContent = `${softnessSlider.value}`;
+      const featherLabel = formatFeatherLabel(softnessSlider.value, light);
+      softnessValue.textContent = featherLabel.text;
+      softnessValue.title = featherLabel.title;
       lightColor.value = light.color;
       falloffSlider.value = (light.falloffK || 1.5).toFixed(1);
       falloffValue.textContent = `${falloffSlider.value}`;
@@ -169,9 +202,21 @@ document.addEventListener("DOMContentLoaded", () => {
       const intensity = Math.pow(t || 0, 2.2) * 2000;
       window.app.updateSelectedLight({ intensity });
     });
+    opacitySlider.addEventListener("input", (e) => {
+      const op = clamp01(e.target.value, 1);
+      opacitySlider.value = op.toFixed(2);
+      opacityValue.textContent = op.toFixed(2);
+      window.app.updateSelectedLight({ opacity: op });
+      if (opacityDebug) {
+        opacityDebug.textContent = `selected light opacity = ${op.toFixed(2)}`;
+      }
+      console.log(`selected light opacity = ${op.toFixed(2)}`);
+    });
     softnessSlider.addEventListener("input", (e) => {
       const v = Number(e.target.value);
-      softnessValue.textContent = `${v}`;
+      const featherLabel = formatFeatherLabel(v, window.app.getSelectedLight());
+      softnessValue.textContent = featherLabel.text;
+      softnessValue.title = featherLabel.title;
       window.app.updateSelectedLight({ feather: v });
     });
     falloffSlider.addEventListener("input", (e) => {
@@ -189,7 +234,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // initialize labels
-    blendingSlider.dispatchEvent(new Event("input", { bubbles: true }));
     exposureSlider.dispatchEvent(new Event("input", { bubbles: true }));
     setControlsEnabled(false);
     updateVisibilityByType(null);
