@@ -13,7 +13,7 @@ const DEBUG_LOGS = false;
 
 const appState = {
   backgroundColor: "#000000", // sRGB hex
-  creationShape: "circle", // 'circle' | 'rect' | 'ellipse'
+  creationShape: "circle", // 'circle' | 'rect'
   exposure: 1.2,
   falloffC: 2.0,
   colorSpace: 1, // 0: linear input, 1: sRGB input (palette)
@@ -70,17 +70,19 @@ function draw() {
     stroke(255);
     strokeWeight(1.5);
     if (selected.type === "circle") {
-      circle(selected.x, selected.y, selected.radius * 2);
-    } else if (selected.type === "ellipse") {
-      const rx = Math.max(
-        1,
-        (selected.baseSize || 150) * (selected.sizeX || 1)
-      );
-      const ry = Math.max(
-        1,
-        (selected.baseSize || 150) * (selected.sizeY || 1)
-      );
-      ellipse(selected.x, selected.y, rx * 2, ry * 2);
+      const sx = Number(selected.sizeX) || 1;
+      const sy = Number(selected.sizeY) || 1;
+      const rx = Math.max(1, (selected.radius || 0) * sx);
+      const ry = Math.max(1, (selected.radius || 0) * sy);
+      if (Math.abs(sx - 1) > 0.001 || Math.abs(sy - 1) > 0.001) {
+        push();
+        translate(selected.x, selected.y);
+        rotate(selected.rotation || 0);
+        ellipse(0, 0, rx * 2, ry * 2);
+        pop();
+      } else {
+        circle(selected.x, selected.y, (selected.radius || 0) * 2);
+      }
     } else {
       rectMode(CENTER);
       rect(selected.x, selected.y, selected.width, selected.height, 4);
@@ -168,14 +170,25 @@ function hitTest(x, y) {
   for (let i = appState.lights.length - 1; i >= 0; i--) {
     const l = appState.lights[i];
     if (l.type === "circle") {
-      const d = dist(x, y, l.x, l.y);
-      if (d <= l.radius) return i;
-    } else if (l.type === "ellipse") {
-      const rx = Math.max(1, (l.baseSize || 150) * (l.sizeX || 1));
-      const ry = Math.max(1, (l.baseSize || 150) * (l.sizeY || 1));
-      const dx = (x - l.x) / rx;
-      const dy = (y - l.y) / ry;
-      if (dx * dx + dy * dy <= 1.0) return i;
+      const sx = Number(l.sizeX) || 1;
+      const sy = Number(l.sizeY) || 1;
+      const rx = Math.max(1, (l.radius || 0) * sx);
+      const ry = Math.max(1, (l.radius || 0) * sy);
+      if (Math.abs(sx - 1) > 0.001 || Math.abs(sy - 1) > 0.001) {
+        const dx = x - l.x;
+        const dy = y - l.y;
+        const rot = -(l.rotation || 0);
+        const c = Math.cos(rot);
+        const s = Math.sin(rot);
+        const px = dx * c - dy * s;
+        const py = dx * s + dy * c;
+        const nx = px / rx;
+        const ny = py / ry;
+        if (nx * nx + ny * ny <= 1.0) return i;
+      } else {
+        const d = dist(x, y, l.x, l.y);
+        if (d <= l.radius) return i;
+      }
     } else {
       const halfW = l.width / 2;
       const halfH = l.height / 2;
@@ -212,30 +225,14 @@ function createLightAt(x, y, type) {
       rotation: 0.0,
     };
   }
-  if (type === "ellipse") {
-    return {
-      id,
-      type: "ellipse",
-      x,
-      y,
-      baseSize: 150,
-      sizeX: 1.2,
-      sizeY: 0.8,
-      color: "#ffffff",
-      colorLinear: hexToLinearRgb("#ffffff"),
-      intensity: 400,
-      feather: 150,
-      falloffK: 1.5,
-      opacity: 1.0,
-      rotation: 0.0,
-    };
-  }
   return {
     id,
     type: "circle",
     x,
     y,
     radius: 150,
+    sizeX: 1.0,
+    sizeY: 1.0,
     color: "#ffffff",
     colorLinear: hexToLinearRgb("#ffffff"),
     intensity: 400,
@@ -317,7 +314,12 @@ function uploadUniforms() {
   for (let i = 0; i < count; i++) {
     const l = lights[i];
     ensureLightCaches(l);
-    typeArr[i] = l.type === "rect" ? 1 : l.type === "ellipse" ? 2 : 0;
+    const sx = Number(l.sizeX) || 1.0;
+    const sy = Number(l.sizeY) || 1.0;
+    const isStretched =
+      l.type === "circle" &&
+      (Math.abs(sx - 1.0) > 0.001 || Math.abs(sy - 1.0) > 0.001);
+    typeArr[i] = l.type === "rect" ? 1 : isStretched ? 2 : 0;
     // match gl_FragCoord (bottom-left origin)
     posArr[i * 2 + 0] = l.x;
     posArr[i * 2 + 1] = height - l.y;
@@ -328,16 +330,8 @@ function uploadUniforms() {
     let sizePx = 0;
     let minHalfSize = 0;
     if (l.type === "circle") {
-      sizePx = Math.max(0, l.radius || 0);
-      minHalfSize = sizePx;
-      rectSizeArr[i * 2 + 0] = (l.radius || 1) * 2;
-      rectSizeArr[i * 2 + 1] = (l.radius || 1) * 2;
-    } else if (l.type === "ellipse") {
-      const base = Math.max(1, l.baseSize || 150);
-      const sx = constrain(l.sizeX ?? 1.0, 0.1, 5);
-      const sy = constrain(l.sizeY ?? 1.0, 0.1, 5);
-      const rx = base * sx;
-      const ry = base * sy;
+      const rx = Math.max(1, (l.radius || 0) * sx);
+      const ry = Math.max(1, (l.radius || 0) * sy);
       sizePx = Math.max(rx, ry);
       minHalfSize = Math.min(rx, ry);
       rectSizeArr[i * 2 + 0] = rx * 2;
@@ -389,7 +383,6 @@ function setBackgroundColor(hex) {
 
 function setCreationShape(shape) {
   if (shape === "rect") appState.creationShape = "rect";
-  else if (shape === "ellipse") appState.creationShape = "ellipse";
   else appState.creationShape = "circle";
 }
 
@@ -406,9 +399,6 @@ function updateSelectedLight(props) {
   if (!l) return;
   if (l.type === "circle") {
     if (typeof props.radius === "number") l.radius = Math.max(1, props.radius);
-  } else if (l.type === "ellipse") {
-    if (typeof props.baseSize === "number")
-      l.baseSize = Math.max(10, props.baseSize);
     if (typeof props.sizeX === "number")
       l.sizeX = constrain(props.sizeX, 0.1, 5);
     if (typeof props.sizeY === "number")
@@ -473,12 +463,8 @@ function clamp(v, lo, hi, fallback) {
 function sanitizeLight(raw) {
   if (!raw || typeof raw !== "object") return null;
 
-  const type =
-    raw.type === "rect"
-      ? "rect"
-      : raw.type === "ellipse"
-      ? "ellipse"
-      : "circle";
+  const isLegacyEllipse = raw.type === "ellipse";
+  const type = raw.type === "rect" ? "rect" : "circle";
   const id =
     typeof raw.id === "string" && raw.id.length > 0
       ? raw.id
@@ -500,12 +486,12 @@ function sanitizeLight(raw) {
   if (type === "rect") {
     base.width = clamp(raw.width, 10, 1600, 220);
     base.height = clamp(raw.height, 10, 1200, 160);
-  } else if (type === "ellipse") {
-    base.baseSize = clamp(raw.baseSize, 10, 1200, 150);
+  } else {
+    const fallbackRadius = clamp(raw.radius, 10, 1200, 150);
+    const legacyRadius = clamp(raw.baseSize, 10, 1200, fallbackRadius);
+    base.radius = isLegacyEllipse ? legacyRadius : fallbackRadius;
     base.sizeX = clamp(raw.sizeX, 0.1, 5, 1);
     base.sizeY = clamp(raw.sizeY, 0.1, 5, 1);
-  } else {
-    base.radius = clamp(raw.radius, 10, 1200, 150);
   }
 
   base.colorLinear = hexToLinearRgb(base.color);
@@ -537,12 +523,10 @@ function serializePreset() {
       if (l.type === "rect") {
         out.width = l.width;
         out.height = l.height;
-      } else if (l.type === "ellipse") {
-        out.baseSize = l.baseSize;
-        out.sizeX = l.sizeX;
-        out.sizeY = l.sizeY;
       } else {
         out.radius = l.radius;
+        out.sizeX = l.sizeX ?? 1;
+        out.sizeY = l.sizeY ?? 1;
       }
       return out;
     }),
@@ -557,12 +541,7 @@ function applyPreset(preset) {
       ? preset.backgroundColor
       : appState.backgroundColor;
 
-  appState.creationShape =
-    preset.creationShape === "rect"
-      ? "rect"
-      : preset.creationShape === "ellipse"
-      ? "ellipse"
-      : "circle";
+  appState.creationShape = preset.creationShape === "rect" ? "rect" : "circle";
   appState.exposure = clamp(preset.exposure, 0.1, 5, appState.exposure);
   appState.falloffC = clamp(preset.falloffC, 0.2, 6.0, appState.falloffC);
   appState.colorSpace = preset.colorSpace === 0 ? 0 : 1;

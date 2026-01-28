@@ -243,14 +243,9 @@ document.addEventListener("DOMContentLoaded", () => {
         };
       const cap =
         light.type === "circle"
-          ? Math.max(0, light.radius || 0)
-          : light.type === "ellipse"
           ? Math.max(
               0,
-              Math.max(
-                (light.baseSize || 150) * (light.sizeX || 1),
-                (light.baseSize || 150) * (light.sizeY || 1)
-              )
+              (light.radius || 0) * Math.max(light.sizeX || 1, light.sizeY || 1)
             )
           : Math.max(0, Math.max(light.width || 0, light.height || 0) * 0.5);
       const t = clamp01(ui / 800, 0);
@@ -274,10 +269,6 @@ document.addEventListener("DOMContentLoaded", () => {
       if (light.type === "circle") {
         circleSizeGroup.style.display = ""; // show circle controls
         rectSizeGroup.style.display = "none"; // hide rect controls
-        if (ellipseControls) ellipseControls.style.display = "none";
-      } else if (light.type === "ellipse") {
-        circleSizeGroup.style.display = "";
-        rectSizeGroup.style.display = "none";
         if (ellipseControls) ellipseControls.style.display = "flex";
       } else {
         circleSizeGroup.style.display = "none"; // hide circle controls
@@ -307,12 +298,8 @@ document.addEventListener("DOMContentLoaded", () => {
       if (light.type === "circle") {
         sizeSlider.value = Math.round(light.radius);
         sizeValue.textContent = sizeSlider.value;
-      } else if (light.type === "ellipse") {
-        const base = Number(light.baseSize) || 150;
         const sx = Number(light.sizeX) || 1;
         const sy = Number(light.sizeY) || 1;
-        sizeSlider.value = Math.round(base);
-        sizeValue.textContent = sizeSlider.value;
         if (sizeXSlider) sizeXSlider.value = sx.toFixed(2);
         if (sizeXValue) sizeXValue.textContent = sx.toFixed(2);
         if (sizeYSlider) sizeYSlider.value = sy.toFixed(2);
@@ -353,8 +340,6 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!l) return;
       if (l.type === "circle") {
         window.app.updateSelectedLight({ radius: v });
-      } else if (l.type === "ellipse") {
-        window.app.updateSelectedLight({ baseSize: v });
       }
     });
     if (sizeXSlider) {
@@ -362,7 +347,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const v = Math.max(0.1, Math.min(3, Number(e.target.value)));
         if (sizeXValue) sizeXValue.textContent = v.toFixed(2);
         const l = window.app.getSelectedLight();
-        if (!l || l.type !== "ellipse") return;
+        if (!l || l.type !== "circle") return;
         window.app.updateSelectedLight({ sizeX: v });
       });
     }
@@ -371,24 +356,28 @@ document.addEventListener("DOMContentLoaded", () => {
         const v = Math.max(0.1, Math.min(3, Number(e.target.value)));
         if (sizeYValue) sizeYValue.textContent = v.toFixed(2);
         const l = window.app.getSelectedLight();
-        if (!l || l.type !== "ellipse") return;
+        if (!l || l.type !== "circle") return;
         window.app.updateSelectedLight({ sizeY: v });
       });
     }
     if (makeCircleByXBtn) {
       makeCircleByXBtn.addEventListener("click", () => {
         const l = window.app.getSelectedLight();
-        if (!l || l.type !== "ellipse") return;
+        if (!l || l.type !== "circle") return;
         const sx = Number(l.sizeX) || 1;
         window.app.updateSelectedLight({ sizeY: sx });
+        if (sizeYSlider) sizeYSlider.value = sx.toFixed(2);
+        if (sizeYValue) sizeYValue.textContent = sx.toFixed(2);
       });
     }
     if (makeCircleByYBtn) {
       makeCircleByYBtn.addEventListener("click", () => {
         const l = window.app.getSelectedLight();
-        if (!l || l.type !== "ellipse") return;
+        if (!l || l.type !== "circle") return;
         const sy = Number(l.sizeY) || 1;
         window.app.updateSelectedLight({ sizeX: sy });
+        if (sizeXSlider) sizeXSlider.value = sy.toFixed(2);
+        if (sizeXValue) sizeXValue.textContent = sy.toFixed(2);
       });
     }
     widthSlider.addEventListener("input", (e) => {

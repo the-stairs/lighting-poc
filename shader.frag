@@ -114,7 +114,8 @@ void main() {
         // ellipse core: rectSize holds diameter (x,y)
         vec2 rad = 0.5 * rectSize;
         rad = max(rad, vec2(1.0));
-        vec2 q = (frag - pos) / rad;
+        vec2 pl = rotate2D(frag - pos, -rot);
+        vec2 q = pl / rad;
         float d = length(q);
         edgeDist = (d - 1.0) * max(rad.x, rad.y);
       }
