@@ -15,6 +15,31 @@ const BLEND_ADD = 0;
 const BLEND_OVER = 1;
 const BLEND_MULTIPLY = 2;
 
+function normalizeRole(role) {
+  return role === "blocker" ? "blocker" : "light";
+}
+
+function roleToBlendMode(role) {
+  return role === "blocker" ? BLEND_MULTIPLY : BLEND_ADD;
+}
+
+function applyRoleToLight(light, role) {
+  const nextRole = normalizeRole(role);
+  light.role = nextRole;
+  light.blendMode = roleToBlendMode(nextRole);
+}
+
+function dispatchLightsChanged() {
+  dispatchEvent(
+    new CustomEvent("app:lightsChanged", {
+      detail: {
+        lights: appState.lights.map((l) => ({ ...l })),
+        selectedLightId: appState.selectedLightId,
+      },
+    })
+  );
+}
+
 const appState = {
   backgroundColor: "#000000", // sRGB hex
   creationShape: "circle", // 'circle' | 'rect'
@@ -82,12 +107,19 @@ function draw() {
     noFill();
 
     if (selected) {
+      if (selected.role === "blocker") {
+        noStroke();
+        fill(255, 15);
+        drawHighlightShape(selected);
+        noFill();
+      }
       stroke(0);
       strokeWeight(3.5);
       drawHighlightShape(selected);
       stroke(255);
       strokeWeight(1.5);
       drawHighlightShape(selected);
+      drawBlockerDash(selected);
     }
 
     if (hovered && (!selected || hovered.id !== selected.id)) {
@@ -97,6 +129,7 @@ function draw() {
       stroke(255, 200);
       strokeWeight(1.5);
       drawHighlightShape(hovered);
+      drawBlockerDash(hovered);
     }
     pop();
   }
@@ -124,6 +157,17 @@ function drawHighlightShape(light) {
   }
 }
 
+function drawBlockerDash(light) {
+  if (!light || light.role !== "blocker") return;
+  const ctx = drawingContext;
+  if (!ctx || typeof ctx.setLineDash !== "function") return;
+  ctx.setLineDash([5, 5]);
+  stroke(255);
+  strokeWeight(1.25);
+  drawHighlightShape(light);
+  ctx.setLineDash([]);
+}
+
 // ============ Input/Interaction ============
 function mousePressed() {
   if (isPointerOverPanel()) return;
@@ -138,6 +182,7 @@ function mousePressed() {
     appState.dragOffset.x = mouseX - light.x;
     appState.dragOffset.y = mouseY - light.y;
     emitSelectionChange();
+    dispatchLightsChanged();
   } else {
     // create new light
     const light = createLightAt(mouseX, mouseY, appState.creationShape);
@@ -147,6 +192,7 @@ function mousePressed() {
     appState.dragOffset.x = 0;
     appState.dragOffset.y = 0;
     emitSelectionChange();
+    dispatchLightsChanged();
   }
 }
 
@@ -180,6 +226,7 @@ function doubleClicked() {
     appState.selectedLightId = null;
     emitSelectionChange();
   }
+  dispatchLightsChanged();
 }
 
 function isMouseOnCanvas() {
@@ -260,6 +307,7 @@ function updateHoverState() {
 function createLightAt(x, y, type) {
   const id = "light-" + Math.random().toString(36).slice(2, 10);
   const baseColor = "#ffffff";
+  const role = "light";
   const common = {
     id,
     x,
@@ -268,7 +316,8 @@ function createLightAt(x, y, type) {
     colorRawLinear: hexToLinearRgb(baseColor),
     colorTintLinear: hexToTintLinearRgb(baseColor),
     _colorHexCache: baseColor,
-    blendMode: BLEND_ADD,
+    role,
+    blendMode: roleToBlendMode(role),
     intensity: 400, // 0..INTENSITY_MAX (HDR)
     feather: 150, // px
     falloffK: 1.5,
@@ -364,7 +413,11 @@ function ensureLightCaches(light) {
   }
   if (!light.colorRawLinear) light.colorRawLinear = hexToLinearRgb(hex);
   if (!light.colorTintLinear) light.colorTintLinear = hexToTintLinearRgb(hex);
-  if (typeof light.blendMode !== "number") light.blendMode = BLEND_ADD;
+  if (light.role !== "light" && light.role !== "blocker") {
+    light.role = "light";
+  }
+  const desiredBlend = roleToBlendMode(light.role);
+  if (light.blendMode !== desiredBlend) light.blendMode = desiredBlend;
 }
 
 // ======== Uniform upload ========
@@ -526,7 +579,14 @@ function updateSelectedLight(props) {
     l.colorTintLinear = hexToTintLinearRgb(props.color);
     l._colorHexCache = props.color;
   }
-  if (typeof props.blendMode === "number") {
+  if (typeof props.role === "string") {
+    const prevRole = l.role;
+    applyRoleToLight(l, props.role);
+    if (prevRole !== l.role) {
+      emitSelectionChange();
+      dispatchLightsChanged();
+    }
+  } else if (typeof props.blendMode === "number") {
     l.blendMode = props.blendMode | 0;
   }
 }
@@ -551,6 +611,7 @@ function deleteSelectedLight() {
   appState.selectedLightId = null;
   appState.dragging = false;
   emitSelectionChange();
+  dispatchLightsChanged();
 }
 
 function clearSelection() {
@@ -558,6 +619,45 @@ function clearSelection() {
   appState.selectedLightId = null;
   appState.dragging = false;
   emitSelectionChange();
+}
+
+function selectLightById(id) {
+  if (typeof id !== "string") return;
+  const exists = appState.lights.some((l) => l.id === id);
+  if (!exists) return;
+  appState.selectedLightId = id;
+  emitSelectionChange();
+  dispatchLightsChanged();
+}
+
+function bringToFrontById(id) {
+  const idx = appState.lights.findIndex((l) => l.id === id);
+  if (idx === -1) return;
+  const [item] = appState.lights.splice(idx, 1);
+  appState.lights.push(item);
+  dispatchLightsChanged();
+}
+
+function sendToBackById(id) {
+  const idx = appState.lights.findIndex((l) => l.id === id);
+  if (idx === -1) return;
+  const [item] = appState.lights.splice(idx, 1);
+  appState.lights.unshift(item);
+  dispatchLightsChanged();
+}
+
+function reorderLightsById(dragId, targetId, place = "before") {
+  if (dragId === targetId) return;
+  const dragIdx = appState.lights.findIndex((l) => l.id === dragId);
+  const targetIdx = appState.lights.findIndex((l) => l.id === targetId);
+  if (dragIdx === -1 || targetIdx === -1) return;
+  const [item] = appState.lights.splice(dragIdx, 1);
+  const adjustedTargetIdx = targetIdx > dragIdx ? targetIdx - 1 : targetIdx;
+  const insertIdx =
+    place === "after" ? adjustedTargetIdx + 1 : adjustedTargetIdx;
+  appState.lights.splice(insertIdx, 0, item);
+  dispatchLightsChanged();
+  if (appState.selectedLightId) emitSelectionChange();
 }
 
 // ============ Preset (Export/Import) ============
@@ -577,6 +677,7 @@ function sanitizeLight(raw) {
       ? raw.id
       : "light-" + Math.random().toString(36).slice(2, 10);
 
+  const role = normalizeRole(raw.role);
   const base = {
     id,
     type,
@@ -588,7 +689,8 @@ function sanitizeLight(raw) {
     falloffK: clamp(raw.falloffK, 0.1, 8, 1.5),
     opacity: clamp(raw.opacity, 0, 1, 1),
     rotation: clamp(raw.rotation, -Math.PI, Math.PI, 0),
-    blendMode: clamp(raw.blendMode, 0, 2, BLEND_ADD),
+    role,
+    blendMode: roleToBlendMode(role),
   };
 
   if (type === "rect") {
@@ -621,6 +723,7 @@ function serializePreset() {
       const out = {
         id: l.id,
         type: l.type,
+        role: l.role === "blocker" ? "blocker" : "light",
         x: l.x,
         y: l.y,
         color: l.color,
@@ -674,6 +777,7 @@ function applyPreset(preset) {
 
   appState.dragging = false;
   emitSelectionChange();
+  dispatchLightsChanged();
   return true;
 }
 
@@ -689,6 +793,10 @@ window.app = {
   getState,
   deleteSelectedLight,
   clearSelection,
+  selectLightById,
+  bringToFrontById,
+  sendToBackById,
+  reorderLightsById,
   exportPreset: () => serializePreset(),
   importPreset: (presetObj) => applyPreset(presetObj),
 };
