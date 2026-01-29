@@ -63,6 +63,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const falloffMinus = $("#falloffMinus");
   const falloffPlus = $("#falloffPlus");
   const falloffHint = $("#falloffHint");
+  const blockerColorHint = $("#blockerColorHint");
   const falloffCMinus = $("#falloffCMinus");
   const falloffCPlus = $("#falloffCPlus");
   const lightColor = $("#lightColor");
@@ -465,6 +466,9 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!enabled && falloffHint) {
         falloffHint.style.display = "none";
       }
+      if (!enabled && blockerColorHint) {
+        blockerColorHint.style.display = "none";
+      }
     }
 
     function formatFeatherLabel(uiValue, light) {
@@ -696,6 +700,10 @@ document.addEventListener("DOMContentLoaded", () => {
       softnessValue.textContent = featherLabel.text;
       softnessValue.title = featherLabel.title;
       lightColor.value = light.color;
+      if (blockerColorHint) {
+        blockerColorHint.style.display =
+          light.role === "blocker" ? "block" : "none";
+      }
       falloffSlider.value = (light.falloffK || 1.5).toFixed(1);
       falloffValue.textContent = `${falloffSlider.value}`;
       updateFalloffHint(light, softnessSlider.value);
@@ -818,6 +826,17 @@ document.addEventListener("DOMContentLoaded", () => {
     if (selectedRole) {
       selectedRole.addEventListener("change", (e) => {
         const role = e.target.value === "blocker" ? "blocker" : "light";
+        const current =
+          window.app.getSelectedLight && window.app.getSelectedLight();
+        const isWhite =
+          current &&
+          typeof current.color === "string" &&
+          ["#ffffff", "#fff"].includes(current.color.toLowerCase());
+        if (role === "blocker" && isWhite) {
+          window.app.updateSelectedLight({ role, color: "#000000" });
+          if (lightColor) lightColor.value = "#000000";
+          return;
+        }
         window.app.updateSelectedLight({ role });
       });
     }

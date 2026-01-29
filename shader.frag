@@ -146,7 +146,7 @@ void main() {
         vec3 src = colorRaw;
         current = current * (1.0 - a) + src * a;
       } else if (mode == 2) {
-        current *= (1.0 - a);
+        current *= mix(vec3(1.0), colorRaw, a);
       }
     }
   }

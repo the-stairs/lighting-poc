@@ -19,6 +19,17 @@ function normalizeRole(role) {
   return role === "blocker" ? "blocker" : "light";
 }
 
+function isDefaultWhiteHex(hex) {
+  const s = safeHex(hex, "#ffffff");
+  if (s.length === 4) {
+    const r = s[1];
+    const g = s[2];
+    const b = s[3];
+    return `#${r}${r}${g}${g}${b}${b}` === "#ffffff";
+  }
+  return s === "#ffffff";
+}
+
 function roleToBlendMode(role) {
   return role === "blocker" ? BLEND_MULTIPLY : BLEND_ADD;
 }
@@ -27,6 +38,12 @@ function applyRoleToLight(light, role) {
   const nextRole = normalizeRole(role);
   light.role = nextRole;
   light.blendMode = roleToBlendMode(nextRole);
+  if (nextRole === "blocker" && isDefaultWhiteHex(light.color)) {
+    light.color = "#000000";
+    light.colorRawLinear = hexToLinearRgb(light.color);
+    light.colorTintLinear = hexToTintLinearRgb(light.color);
+    light._colorHexCache = light.color;
+  }
 }
 
 function dispatchLightsChanged() {
@@ -704,6 +721,9 @@ function sanitizeLight(raw) {
     base.sizeY = clamp(raw.sizeY, 0.1, 5, 1);
   }
 
+  if (role === "blocker" && isDefaultWhiteHex(base.color)) {
+    base.color = "#000000";
+  }
   base.colorRawLinear = hexToLinearRgb(base.color);
   base.colorTintLinear = hexToTintLinearRgb(base.color);
   base._colorHexCache = base.color;
