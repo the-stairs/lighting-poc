@@ -441,9 +441,15 @@ document.addEventListener("DOMContentLoaded", () => {
     if (togglePanelBtn)
       togglePanelBtn.textContent = hidden ? "패널 표시 (P)" : "패널 숨기기 (P)";
   }
+  function syncPreviewMode(hidden) {
+    if (window.app && typeof window.app.setPreviewMode === "function") {
+      window.app.setPreviewMode(hidden);
+    }
+  }
   function hidePanelAndClearSelection() {
     document.body.classList.add("panel-hidden");
     updateToggleButtonLabel();
+    syncPreviewMode(true);
     if (window.app && typeof window.app.clearSelection === "function") {
       window.app.clearSelection();
     }
@@ -453,6 +459,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const willHide = !document.body.classList.contains("panel-hidden");
       document.body.classList.toggle("panel-hidden");
       updateToggleButtonLabel();
+      syncPreviewMode(willHide);
       if (
         willHide &&
         window.app &&
@@ -469,6 +476,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const willHide = !document.body.classList.contains("panel-hidden");
     document.body.classList.toggle("panel-hidden");
     updateToggleButtonLabel();
+    syncPreviewMode(willHide);
     if (
       willHide &&
       window.app &&
