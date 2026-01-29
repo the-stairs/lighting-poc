@@ -10,10 +10,39 @@ const FEATHER_PX_CAP = 800;
 const OUT_RATIO = 0.15;
 const IN_RATIO = 1.0 - OUT_RATIO;
 const DEBUG_LOGS = false;
+// 0: ADD, 1: OVER, 2: MULTIPLY
+const BLEND_ADD = 0;
+const BLEND_OVER = 1;
+const BLEND_MULTIPLY = 2;
+
+function normalizeRole(role) {
+  return role === "blocker" ? "blocker" : "light";
+}
+
+function roleToBlendMode(role) {
+  return role === "blocker" ? BLEND_MULTIPLY : BLEND_ADD;
+}
+
+function applyRoleToLight(light, role) {
+  const nextRole = normalizeRole(role);
+  light.role = nextRole;
+  light.blendMode = roleToBlendMode(nextRole);
+}
+
+function dispatchLightsChanged() {
+  dispatchEvent(
+    new CustomEvent("app:lightsChanged", {
+      detail: {
+        lights: appState.lights.map((l) => ({ ...l })),
+        selectedLightId: appState.selectedLightId,
+      },
+    })
+  );
+}
 
 const appState = {
   backgroundColor: "#000000", // sRGB hex
-  creationShape: "circle", // 'circle' | 'rect' | 'ellipse'
+  creationShape: "circle", // 'circle' | 'rect'
   exposure: 1.2,
   falloffC: 2.0,
   colorSpace: 1, // 0: linear input, 1: sRGB input (palette)
@@ -21,6 +50,8 @@ const appState = {
   selectedLightId: null,
   dragOffset: { x: 0, y: 0 },
   dragging: false,
+  hoveredIdx: -1,
+  previewMode: false,
 };
 
 function preload() {
@@ -59,34 +90,82 @@ function draw() {
   rect(0, 0, width, height);
   resetShader();
 
-  // selection highlight overlay (in pixel-top-left space)
+  updateHoverState();
+  if (appState.previewMode) return;
+
+  // selection/hover overlay (in pixel-top-left space)
   const selected = getSelectedLight();
-  if (selected) {
+  const hovered =
+    appState.hoveredIdx >= 0 && appState.hoveredIdx < appState.lights.length
+      ? appState.lights[appState.hoveredIdx]
+      : null;
+  if (selected || hovered) {
     push();
     // map top-left (0,0) to WEBGL coordinates
     resetMatrix();
     translate(-width / 2, -height / 2, 0);
     noFill();
-    stroke(255);
-    strokeWeight(1.5);
-    if (selected.type === "circle") {
-      circle(selected.x, selected.y, selected.radius * 2);
-    } else if (selected.type === "ellipse") {
-      const rx = Math.max(
-        1,
-        (selected.baseSize || 150) * (selected.sizeX || 1)
-      );
-      const ry = Math.max(
-        1,
-        (selected.baseSize || 150) * (selected.sizeY || 1)
-      );
-      ellipse(selected.x, selected.y, rx * 2, ry * 2);
-    } else {
-      rectMode(CENTER);
-      rect(selected.x, selected.y, selected.width, selected.height, 4);
+
+    if (selected) {
+      if (selected.role === "blocker") {
+        noStroke();
+        fill(255, 15);
+        drawHighlightShape(selected);
+        noFill();
+      }
+      stroke(0);
+      strokeWeight(3.5);
+      drawHighlightShape(selected);
+      stroke(255);
+      strokeWeight(1.5);
+      drawHighlightShape(selected);
+      drawBlockerDash(selected);
+    }
+
+    if (hovered && (!selected || hovered.id !== selected.id)) {
+      stroke(0, 100);
+      strokeWeight(2.5);
+      drawHighlightShape(hovered);
+      stroke(255, 200);
+      strokeWeight(1.5);
+      drawHighlightShape(hovered);
+      drawBlockerDash(hovered);
     }
     pop();
   }
+}
+
+function drawHighlightShape(light) {
+  if (!light) return;
+  if (light.type === "circle") {
+    const sx = Number(light.sizeX) || 1;
+    const sy = Number(light.sizeY) || 1;
+    const rx = Math.max(1, (light.radius || 0) * sx);
+    const ry = Math.max(1, (light.radius || 0) * sy);
+    if (Math.abs(sx - 1) > 0.001 || Math.abs(sy - 1) > 0.001) {
+      push();
+      translate(light.x, light.y);
+      rotate(light.rotation || 0);
+      ellipse(0, 0, rx * 2, ry * 2);
+      pop();
+    } else {
+      circle(light.x, light.y, (light.radius || 0) * 2);
+    }
+  } else {
+    rectMode(CENTER);
+    rect(light.x, light.y, light.width, light.height, 4);
+  }
+}
+
+function drawBlockerDash(light) {
+  if (!light || light.role !== "blocker") return;
+  const ctx = drawingContext;
+  if (!ctx || typeof ctx.setLineDash !== "function") return;
+  ctx.setLineDash([5, 5]);
+  stroke(255);
+  strokeWeight(1.25);
+  drawHighlightShape(light);
+  ctx.setLineDash([]);
 }
 
 // ============ Input/Interaction ============
@@ -103,6 +182,7 @@ function mousePressed() {
     appState.dragOffset.x = mouseX - light.x;
     appState.dragOffset.y = mouseY - light.y;
     emitSelectionChange();
+    dispatchLightsChanged();
   } else {
     // create new light
     const light = createLightAt(mouseX, mouseY, appState.creationShape);
@@ -112,6 +192,7 @@ function mousePressed() {
     appState.dragOffset.x = 0;
     appState.dragOffset.y = 0;
     emitSelectionChange();
+    dispatchLightsChanged();
   }
 }
 
@@ -122,6 +203,10 @@ function mouseDragged() {
   if (!selected) return;
   selected.x = mouseX - appState.dragOffset.x;
   selected.y = mouseY - appState.dragOffset.y;
+}
+
+function mouseMoved() {
+  updateHoverState();
 }
 
 function mouseReleased() {
@@ -141,6 +226,7 @@ function doubleClicked() {
     appState.selectedLightId = null;
     emitSelectionChange();
   }
+  dispatchLightsChanged();
 }
 
 function isMouseOnCanvas() {
@@ -148,34 +234,47 @@ function isMouseOnCanvas() {
 }
 
 function isPointerOverPanel() {
-  const x =
-    typeof winMouseX === "number"
-      ? winMouseX
-      : window.event && typeof window.event.clientX === "number"
-      ? window.event.clientX
-      : 0;
-  const y =
-    typeof winMouseY === "number"
-      ? winMouseY
-      : window.event && typeof window.event.clientY === "number"
-      ? window.event.clientY
-      : 0;
-  const el = document.elementFromPoint(x, y);
-  return !!(el && el.closest && el.closest("#control-panel"));
+  if (document.body.classList.contains("panel-hidden")) return false;
+  const panel = document.getElementById("control-panel");
+  if (!panel) return false;
+  const canvasEl = p5Canvas && p5Canvas.elt;
+  if (!canvasEl) return false;
+
+  const c = canvasEl.getBoundingClientRect();
+  const clientX = c.left + mouseX;
+  const clientY = c.top + mouseY;
+  const r = panel.getBoundingClientRect();
+  return (
+    clientX >= r.left &&
+    clientX <= r.right &&
+    clientY >= r.top &&
+    clientY <= r.bottom
+  );
 }
 
 function hitTest(x, y) {
   for (let i = appState.lights.length - 1; i >= 0; i--) {
     const l = appState.lights[i];
     if (l.type === "circle") {
-      const d = dist(x, y, l.x, l.y);
-      if (d <= l.radius) return i;
-    } else if (l.type === "ellipse") {
-      const rx = Math.max(1, (l.baseSize || 150) * (l.sizeX || 1));
-      const ry = Math.max(1, (l.baseSize || 150) * (l.sizeY || 1));
-      const dx = (x - l.x) / rx;
-      const dy = (y - l.y) / ry;
-      if (dx * dx + dy * dy <= 1.0) return i;
+      const sx = Number(l.sizeX) || 1;
+      const sy = Number(l.sizeY) || 1;
+      const rx = Math.max(1, (l.radius || 0) * sx);
+      const ry = Math.max(1, (l.radius || 0) * sy);
+      if (Math.abs(sx - 1) > 0.001 || Math.abs(sy - 1) > 0.001) {
+        const dx = x - l.x;
+        const dy = y - l.y;
+        const rot = -(l.rotation || 0);
+        const c = Math.cos(rot);
+        const s = Math.sin(rot);
+        const px = dx * c - dy * s;
+        const py = dx * s + dy * c;
+        const nx = px / rx;
+        const ny = py / ry;
+        if (nx * nx + ny * ny <= 1.0) return i;
+      } else {
+        const d = dist(x, y, l.x, l.y);
+        if (d <= l.radius) return i;
+      }
     } else {
       const halfW = l.width / 2;
       const halfH = l.height / 2;
@@ -192,57 +291,53 @@ function hitTest(x, y) {
   return -1;
 }
 
+function updateHoverState() {
+  if (appState.previewMode) {
+    appState.hoveredIdx = -1;
+    return;
+  }
+  if (appState.dragging || isPointerOverPanel() || !isMouseOnCanvas()) {
+    appState.hoveredIdx = -1;
+    return;
+  }
+  appState.hoveredIdx = hitTest(mouseX, mouseY);
+}
+
 // ============ Lights ============
 function createLightAt(x, y, type) {
   const id = "light-" + Math.random().toString(36).slice(2, 10);
-  if (type === "rect") {
-    return {
-      id,
-      type: "rect",
-      x,
-      y,
-      width: 220,
-      height: 160,
-      color: "#ffffff", // sRGB hex
-      colorLinear: hexToLinearRgb("#ffffff"),
-      intensity: 400, // 0..INTENSITY_MAX (HDR)
-      feather: 150, // px
-      falloffK: 1.5,
-      opacity: 1.0,
-      rotation: 0.0,
-    };
-  }
-  if (type === "ellipse") {
-    return {
-      id,
-      type: "ellipse",
-      x,
-      y,
-      baseSize: 150,
-      sizeX: 1.2,
-      sizeY: 0.8,
-      color: "#ffffff",
-      colorLinear: hexToLinearRgb("#ffffff"),
-      intensity: 400,
-      feather: 150,
-      falloffK: 1.5,
-      opacity: 1.0,
-      rotation: 0.0,
-    };
-  }
-  return {
+  const baseColor = "#ffffff";
+  const role = "light";
+  const common = {
     id,
-    type: "circle",
     x,
     y,
-    radius: 150,
-    color: "#ffffff",
-    colorLinear: hexToLinearRgb("#ffffff"),
-    intensity: 400,
-    feather: 150,
+    color: baseColor, // sRGB hex
+    colorRawLinear: hexToLinearRgb(baseColor),
+    colorTintLinear: hexToTintLinearRgb(baseColor),
+    _colorHexCache: baseColor,
+    role,
+    blendMode: roleToBlendMode(role),
+    intensity: 400, // 0..INTENSITY_MAX (HDR)
+    feather: 150, // px
     falloffK: 1.5,
     opacity: 1.0,
     rotation: 0.0,
+  };
+  if (type === "rect") {
+    return {
+      ...common,
+      type: "rect",
+      width: 220,
+      height: 160,
+    };
+  }
+  return {
+    ...common,
+    type: "circle",
+    radius: 150,
+    sizeX: 1.0,
+    sizeY: 1.0,
   };
 }
 
@@ -253,8 +348,17 @@ function getSelectedLight() {
 }
 
 // ======== Color helpers (sRGB -> Linear) ========
+// Manual check: intensity=400 with #101010 / #808080 / #ff0000 keeps brightness, hue changes only.
+function safeHex(hex, fallback = "#ffffff") {
+  const s = String(hex || "")
+    .trim()
+    .toLowerCase();
+  const ok = /^#([0-9a-f]{3}|[0-9a-f]{6})$/.test(s);
+  return ok ? s : fallback;
+}
+
 function hexToRgb01(hex) {
-  const h = hex.replace("#", "");
+  const h = safeHex(hex).replace("#", "");
   const full =
     h.length === 3
       ? h
@@ -277,11 +381,43 @@ function hexToLinearRgb(hex) {
   return { r: srgbToLinear01(r), g: srgbToLinear01(g), b: srgbToLinear01(b) };
 }
 
+function hexToTintLinearRgb(hex) {
+  const { r, g, b } = hexToRgb01(hex);
+  const linR = srgbToLinear01(r);
+  const linG = srgbToLinear01(g);
+  const linB = srgbToLinear01(b);
+  const maxC = Math.max(linR, linG, linB);
+  const minC = Math.min(linR, linG, linB);
+  if (maxC < 0.001) return { r: 0, g: 0, b: 0 };
+  const chromaRatio = (maxC - minC) / maxC;
+  const t0 = 0.02;
+  const t1 = 0.08;
+  const u = Math.max(0, Math.min(1, (chromaRatio - t0) / (t1 - t0)));
+  const t = u * u * (3 - 2 * u); // smoothstep
+  const normR = linR / maxC;
+  const normG = linG / maxC;
+  const normB = linB / maxC;
+  return {
+    r: 1 + (normR - 1) * t,
+    g: 1 + (normG - 1) * t,
+    b: 1 + (normB - 1) * t,
+  };
+}
+
 function ensureLightCaches(light) {
-  // refresh linear cache if missing or color changed
-  if (!light.colorLinear || typeof light.colorLinear.r !== "number") {
-    light.colorLinear = hexToLinearRgb(light.color || "#ffffff");
+  const hex = light.color || "#ffffff";
+  if (light._colorHexCache !== hex) {
+    light.colorRawLinear = hexToLinearRgb(hex);
+    light.colorTintLinear = hexToTintLinearRgb(hex);
+    light._colorHexCache = hex;
   }
+  if (!light.colorRawLinear) light.colorRawLinear = hexToLinearRgb(hex);
+  if (!light.colorTintLinear) light.colorTintLinear = hexToTintLinearRgb(hex);
+  if (light.role !== "light" && light.role !== "blocker") {
+    light.role = "light";
+  }
+  const desiredBlend = roleToBlendMode(light.role);
+  if (light.blendMode !== desiredBlend) light.blendMode = desiredBlend;
 }
 
 // ======== Uniform upload ========
@@ -305,7 +441,8 @@ function uploadUniforms() {
 
   const typeArr = new Int32Array(U_MAX_LIGHTS);
   const posArr = new Float32Array(U_MAX_LIGHTS * 2);
-  const colorArr = new Float32Array(U_MAX_LIGHTS * 3);
+  const rawColorArr = new Float32Array(U_MAX_LIGHTS * 3);
+  const tintColorArr = new Float32Array(U_MAX_LIGHTS * 3);
   const intensityArr = new Float32Array(U_MAX_LIGHTS);
   const sizeArr = new Float32Array(U_MAX_LIGHTS);
   const featherArr = new Float32Array(U_MAX_LIGHTS);
@@ -313,31 +450,32 @@ function uploadUniforms() {
   const falloffArr = new Float32Array(U_MAX_LIGHTS);
   const rotationArr = new Float32Array(U_MAX_LIGHTS);
   const opacityArr = new Float32Array(U_MAX_LIGHTS);
+  const blendModeArr = new Int32Array(U_MAX_LIGHTS);
 
   for (let i = 0; i < count; i++) {
     const l = lights[i];
     ensureLightCaches(l);
-    typeArr[i] = l.type === "rect" ? 1 : l.type === "ellipse" ? 2 : 0;
+    const sx = Number(l.sizeX) || 1.0;
+    const sy = Number(l.sizeY) || 1.0;
+    const isStretched =
+      l.type === "circle" &&
+      (Math.abs(sx - 1.0) > 0.001 || Math.abs(sy - 1.0) > 0.001);
+    typeArr[i] = l.type === "rect" ? 1 : isStretched ? 2 : 0;
     // match gl_FragCoord (bottom-left origin)
     posArr[i * 2 + 0] = l.x;
     posArr[i * 2 + 1] = height - l.y;
-    colorArr[i * 3 + 0] = l.colorLinear.r;
-    colorArr[i * 3 + 1] = l.colorLinear.g;
-    colorArr[i * 3 + 2] = l.colorLinear.b;
+    rawColorArr[i * 3 + 0] = l.colorRawLinear.r;
+    rawColorArr[i * 3 + 1] = l.colorRawLinear.g;
+    rawColorArr[i * 3 + 2] = l.colorRawLinear.b;
+    tintColorArr[i * 3 + 0] = l.colorTintLinear.r;
+    tintColorArr[i * 3 + 1] = l.colorTintLinear.g;
+    tintColorArr[i * 3 + 2] = l.colorTintLinear.b;
     intensityArr[i] = constrain(l.intensity ?? 0, 0, INTENSITY_MAX);
     let sizePx = 0;
     let minHalfSize = 0;
     if (l.type === "circle") {
-      sizePx = Math.max(0, l.radius || 0);
-      minHalfSize = sizePx;
-      rectSizeArr[i * 2 + 0] = (l.radius || 1) * 2;
-      rectSizeArr[i * 2 + 1] = (l.radius || 1) * 2;
-    } else if (l.type === "ellipse") {
-      const base = Math.max(1, l.baseSize || 150);
-      const sx = constrain(l.sizeX ?? 1.0, 0.1, 5);
-      const sy = constrain(l.sizeY ?? 1.0, 0.1, 5);
-      const rx = base * sx;
-      const ry = base * sy;
+      const rx = Math.max(1, (l.radius || 0) * sx);
+      const ry = Math.max(1, (l.radius || 0) * sy);
       sizePx = Math.max(rx, ry);
       minHalfSize = Math.min(rx, ry);
       rectSizeArr[i * 2 + 0] = rx * 2;
@@ -359,6 +497,7 @@ function uploadUniforms() {
     falloffArr[i] = constrain(l.falloffK ?? 1.5, 0.1, 8);
     rotationArr[i] = l.rotation ?? 0.0;
     opacityArr[i] = constrain(l.opacity ?? 1.0, 0, 1);
+    blendModeArr[i] = l.blendMode | 0;
   }
   if (DEBUG_LOGS) {
     console.log("[opacityArr]", Array.from(opacityArr.slice(0, count)));
@@ -366,7 +505,8 @@ function uploadUniforms() {
 
   glShader.setUniform("u_lightType", typeArr);
   glShader.setUniform("u_lightPos", posArr);
-  glShader.setUniform("u_lightColorLinear", colorArr);
+  glShader.setUniform("u_lightColorRawLinear", rawColorArr);
+  glShader.setUniform("u_lightTintLinear", tintColorArr);
   glShader.setUniform("u_lightIntensity", intensityArr);
   glShader.setUniform("u_lightSize", sizeArr);
   glShader.setUniform("u_lightFeather", featherArr);
@@ -374,6 +514,7 @@ function uploadUniforms() {
   glShader.setUniform("u_lightFalloffK", falloffArr);
   glShader.setUniform("u_lightRotation", rotationArr);
   glShader.setUniform("u_lightOpacity", opacityArr);
+  glShader.setUniform("u_lightBlendMode", blendModeArr);
   glShader.setUniform("u_outRatio", OUT_RATIO);
 }
 
@@ -389,7 +530,6 @@ function setBackgroundColor(hex) {
 
 function setCreationShape(shape) {
   if (shape === "rect") appState.creationShape = "rect";
-  else if (shape === "ellipse") appState.creationShape = "ellipse";
   else appState.creationShape = "circle";
 }
 
@@ -401,14 +541,18 @@ function setFalloffC(v) {
   appState.falloffC = clamp(v, 0.2, 6.0, 2.0);
 }
 
+function setPreviewMode(enabled) {
+  appState.previewMode = !!enabled;
+  if (appState.previewMode) {
+    appState.hoveredIdx = -1;
+  }
+}
+
 function updateSelectedLight(props) {
   const l = getSelectedLight();
   if (!l) return;
   if (l.type === "circle") {
     if (typeof props.radius === "number") l.radius = Math.max(1, props.radius);
-  } else if (l.type === "ellipse") {
-    if (typeof props.baseSize === "number")
-      l.baseSize = Math.max(10, props.baseSize);
     if (typeof props.sizeX === "number")
       l.sizeX = constrain(props.sizeX, 0.1, 5);
     if (typeof props.sizeY === "number")
@@ -431,7 +575,19 @@ function updateSelectedLight(props) {
   }
   if (typeof props.color === "string") {
     l.color = props.color;
-    l.colorLinear = hexToLinearRgb(props.color);
+    l.colorRawLinear = hexToLinearRgb(props.color);
+    l.colorTintLinear = hexToTintLinearRgb(props.color);
+    l._colorHexCache = props.color;
+  }
+  if (typeof props.role === "string") {
+    const prevRole = l.role;
+    applyRoleToLight(l, props.role);
+    if (prevRole !== l.role) {
+      emitSelectionChange();
+      dispatchLightsChanged();
+    }
+  } else if (typeof props.blendMode === "number") {
+    l.blendMode = props.blendMode | 0;
   }
 }
 
@@ -451,9 +607,11 @@ function deleteSelectedLight() {
   const idx = appState.lights.findIndex((l) => l.id === id);
   if (idx === -1) return;
   appState.lights.splice(idx, 1);
+  appState.hoveredIdx = -1;
   appState.selectedLightId = null;
   appState.dragging = false;
   emitSelectionChange();
+  dispatchLightsChanged();
 }
 
 function clearSelection() {
@@ -461,6 +619,45 @@ function clearSelection() {
   appState.selectedLightId = null;
   appState.dragging = false;
   emitSelectionChange();
+}
+
+function selectLightById(id) {
+  if (typeof id !== "string") return;
+  const exists = appState.lights.some((l) => l.id === id);
+  if (!exists) return;
+  appState.selectedLightId = id;
+  emitSelectionChange();
+  dispatchLightsChanged();
+}
+
+function bringToFrontById(id) {
+  const idx = appState.lights.findIndex((l) => l.id === id);
+  if (idx === -1) return;
+  const [item] = appState.lights.splice(idx, 1);
+  appState.lights.push(item);
+  dispatchLightsChanged();
+}
+
+function sendToBackById(id) {
+  const idx = appState.lights.findIndex((l) => l.id === id);
+  if (idx === -1) return;
+  const [item] = appState.lights.splice(idx, 1);
+  appState.lights.unshift(item);
+  dispatchLightsChanged();
+}
+
+function reorderLightsById(dragId, targetId, place = "before") {
+  if (dragId === targetId) return;
+  const dragIdx = appState.lights.findIndex((l) => l.id === dragId);
+  const targetIdx = appState.lights.findIndex((l) => l.id === targetId);
+  if (dragIdx === -1 || targetIdx === -1) return;
+  const [item] = appState.lights.splice(dragIdx, 1);
+  const adjustedTargetIdx = targetIdx > dragIdx ? targetIdx - 1 : targetIdx;
+  const insertIdx =
+    place === "after" ? adjustedTargetIdx + 1 : adjustedTargetIdx;
+  appState.lights.splice(insertIdx, 0, item);
+  dispatchLightsChanged();
+  if (appState.selectedLightId) emitSelectionChange();
 }
 
 // ============ Preset (Export/Import) ============
@@ -473,17 +670,14 @@ function clamp(v, lo, hi, fallback) {
 function sanitizeLight(raw) {
   if (!raw || typeof raw !== "object") return null;
 
-  const type =
-    raw.type === "rect"
-      ? "rect"
-      : raw.type === "ellipse"
-      ? "ellipse"
-      : "circle";
+  const isLegacyEllipse = raw.type === "ellipse";
+  const type = raw.type === "rect" ? "rect" : "circle";
   const id =
     typeof raw.id === "string" && raw.id.length > 0
       ? raw.id
       : "light-" + Math.random().toString(36).slice(2, 10);
 
+  const role = normalizeRole(raw.role);
   const base = {
     id,
     type,
@@ -495,20 +689,24 @@ function sanitizeLight(raw) {
     falloffK: clamp(raw.falloffK, 0.1, 8, 1.5),
     opacity: clamp(raw.opacity, 0, 1, 1),
     rotation: clamp(raw.rotation, -Math.PI, Math.PI, 0),
+    role,
+    blendMode: roleToBlendMode(role),
   };
 
   if (type === "rect") {
     base.width = clamp(raw.width, 10, 1600, 220);
     base.height = clamp(raw.height, 10, 1200, 160);
-  } else if (type === "ellipse") {
-    base.baseSize = clamp(raw.baseSize, 10, 1200, 150);
+  } else {
+    const fallbackRadius = clamp(raw.radius, 10, 1200, 150);
+    const legacyRadius = clamp(raw.baseSize, 10, 1200, fallbackRadius);
+    base.radius = isLegacyEllipse ? legacyRadius : fallbackRadius;
     base.sizeX = clamp(raw.sizeX, 0.1, 5, 1);
     base.sizeY = clamp(raw.sizeY, 0.1, 5, 1);
-  } else {
-    base.radius = clamp(raw.radius, 10, 1200, 150);
   }
 
-  base.colorLinear = hexToLinearRgb(base.color);
+  base.colorRawLinear = hexToLinearRgb(base.color);
+  base.colorTintLinear = hexToTintLinearRgb(base.color);
+  base._colorHexCache = base.color;
   return base;
 }
 
@@ -525,6 +723,7 @@ function serializePreset() {
       const out = {
         id: l.id,
         type: l.type,
+        role: l.role === "blocker" ? "blocker" : "light",
         x: l.x,
         y: l.y,
         color: l.color,
@@ -533,16 +732,15 @@ function serializePreset() {
         falloffK: l.falloffK,
         opacity: l.opacity,
         rotation: l.rotation,
+        blendMode: l.blendMode ?? BLEND_ADD,
       };
       if (l.type === "rect") {
         out.width = l.width;
         out.height = l.height;
-      } else if (l.type === "ellipse") {
-        out.baseSize = l.baseSize;
-        out.sizeX = l.sizeX;
-        out.sizeY = l.sizeY;
       } else {
         out.radius = l.radius;
+        out.sizeX = l.sizeX ?? 1;
+        out.sizeY = l.sizeY ?? 1;
       }
       return out;
     }),
@@ -557,12 +755,7 @@ function applyPreset(preset) {
       ? preset.backgroundColor
       : appState.backgroundColor;
 
-  appState.creationShape =
-    preset.creationShape === "rect"
-      ? "rect"
-      : preset.creationShape === "ellipse"
-      ? "ellipse"
-      : "circle";
+  appState.creationShape = preset.creationShape === "rect" ? "rect" : "circle";
   appState.exposure = clamp(preset.exposure, 0.1, 5, appState.exposure);
   appState.falloffC = clamp(preset.falloffC, 0.2, 6.0, appState.falloffC);
   appState.colorSpace = preset.colorSpace === 0 ? 0 : 1;
@@ -584,6 +777,7 @@ function applyPreset(preset) {
 
   appState.dragging = false;
   emitSelectionChange();
+  dispatchLightsChanged();
   return true;
 }
 
@@ -593,11 +787,16 @@ window.app = {
   setCreationShape,
   setExposure,
   setFalloffC,
+  setPreviewMode,
   updateSelectedLight,
   getSelectedLight,
   getState,
   deleteSelectedLight,
   clearSelection,
+  selectLightById,
+  bringToFrontById,
+  sendToBackById,
+  reorderLightsById,
   exportPreset: () => serializePreset(),
   importPreset: (presetObj) => applyPreset(presetObj),
 };

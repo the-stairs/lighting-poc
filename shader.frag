@@ -17,7 +17,9 @@ uniform int u_colorSpace; // 0: linear, 1: sRGB input on CPU side (kept for futu
 
 uniform int u_lightType[U_MAX_LIGHTS];
 uniform vec2 u_lightPos[U_MAX_LIGHTS];
-uniform vec3 u_lightColorLinear[U_MAX_LIGHTS];
+uniform vec3 u_lightColorRawLinear[U_MAX_LIGHTS];
+uniform vec3 u_lightTintLinear[U_MAX_LIGHTS];
+uniform int u_lightBlendMode[U_MAX_LIGHTS];
 uniform float u_lightIntensity[U_MAX_LIGHTS];
 uniform float u_lightSize[U_MAX_LIGHTS];
 uniform float u_lightFeather[U_MAX_LIGHTS];
@@ -60,8 +62,8 @@ void main() {
   // Use fragment coordinate in pixel space (origin bottom-left)
   vec2 frag = gl_FragCoord.xy;
 
-  // accumulate lighting in linear space (lights only)
-  vec3 lightAccum = vec3(0.0);
+  // accumulate in linear space (background + layers)
+  vec3 current = u_bgColorLinear;
 
   int count = u_numLights;
   if (count > U_MAX_LIGHTS) {
@@ -73,7 +75,8 @@ void main() {
 
     int t = u_lightType[i];
     vec2 pos = u_lightPos[i];
-    vec3 colorL = u_lightColorLinear[i];
+    vec3 colorRaw = u_lightColorRawLinear[i];
+    vec3 colorTint = u_lightTintLinear[i];
     float intensityHdr = u_lightIntensity[i];
     float sizePx = max(u_lightSize[i], 0.0);
     float featherPx = max(u_lightFeather[i], 0.0);
@@ -81,7 +84,6 @@ void main() {
     float k = max(u_lightFalloffK[i], 0.0001);
     float rot = u_lightRotation[i];
     float opacity = clamp(u_lightOpacity[i], 0.0, 1.0);
-    float op = pow(opacity, 2.2);
 
     float R = sizePx;
     float F = max(featherPx, 1e-6);
@@ -114,7 +116,8 @@ void main() {
         // ellipse core: rectSize holds diameter (x,y)
         vec2 rad = 0.5 * rectSize;
         rad = max(rad, vec2(1.0));
-        vec2 q = (frag - pos) / rad;
+        vec2 pl = rotate2D(frag - pos, -rot);
+        vec2 q = pl / rad;
         float d = length(q);
         edgeDist = (d - 1.0) * max(rad.x, rad.y);
       }
@@ -128,21 +131,27 @@ void main() {
     // falloff uses the same normalized space as profile for consistency
     float falloff = 1.0 / (1.0 + pow(tFalloff, k) * u_falloffC);
 
-    // uniform intensity; profile and falloff shape the edge
-    float intensity = intensityHdr / 2000.0;
-    vec3 baseContrib = colorL * intensity * profile * falloff;
-    if (op <= 0.0) continue;
+    float mask = profile * falloff;
+    float a = clamp(mask * opacity, 0.0, 1.0);
+    int mode = u_lightBlendMode[i];
+    if (opacity <= 0.0) continue;
     if (DEBUG_OPACITY_VIS == 1) {
-      lightAccum += vec3(op);
+      current += vec3(a);
     } else {
-      lightAccum += baseContrib * op;
+      if (mode == 0) {
+        float energy = intensityHdr / 2000.0;
+        vec3 src = colorTint * energy;
+        current += src * a;
+      } else if (mode == 1) {
+        vec3 src = colorRaw;
+        current = current * (1.0 - a) + src * a;
+      } else if (mode == 2) {
+        current *= (1.0 - a);
+      }
     }
   }
 
-  // add background in linear space
-  vec3 accumLinear = u_bgColorLinear + lightAccum;
-
-  vec3 srgb = toneMapAndToSRGB(accumLinear, u_exposure);
+  vec3 srgb = toneMapAndToSRGB(current, u_exposure);
   gl_FragColor = vec4(srgb, 1.0);
 }
 
