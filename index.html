@@ -136,10 +136,11 @@
         <div id="light-controls" class="stack" aria-disabled="true">
           <div class="row">
             <label class="grow">
-              <span>Role</span>
-              <select id="selectedRole" disabled>
-                <option value="light">Light</option>
-                <option value="blocker">Blocker</option>
+              <span>Type</span>
+              <select id="selectedType" disabled>
+                <option value="LIGHT">Light</option>
+                <option value="FILTER">Filter</option>
+                <option value="SOLID">Solid</option>
               </select>
             </label>
           </div>
@@ -266,7 +267,7 @@
               −
             </button>
             <label class="grow">
-              <span>밝기 (HDR Intensity)</span>
+              <span id="brightnessLabel">밝기 (HDR Intensity)</span>
               <input
                 id="brightnessSlider"
                 type="range"
@@ -298,7 +299,7 @@
               −
             </button>
             <label class="grow">
-              <span>Opacity</span>
+              <span id="opacityLabel">Opacity</span>
               <input
                 id="opacitySlider"
                 type="range"
@@ -392,8 +393,8 @@
             </label>
           </div>
           <p id="blockerColorHint" class="hint" style="display: none">
-            Blocker 색상은 빛을 ‘반사’하기보다 ‘거르는 필터’처럼 동작합니다.
-            완전히 가리고 싶다면 검정색 + Opacity 1.0을 사용하세요.
+            Filter에서 흰색은 투과 100%에 가까워 효과가 거의 없을 수 있어요.
+            흰 판이 필요하면 Solid를 사용하세요.
           </p>
 
           <div class="row">
@@ -411,6 +412,11 @@
 
       <details class="group" open>
         <summary>레이어 목록</summary>
+        <div class="row">
+          <button id="addLightBtn" type="button">+ Light</button>
+          <button id="addFilterBtn" type="button">+ Filter</button>
+          <button id="addSolidBtn" type="button">+ Solid</button>
+        </div>
         <div class="row">
           <button id="btnBringToFront" type="button">Bring to Front</button>
           <button id="btnSendToBack" type="button">Send to Back</button>

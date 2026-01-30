@@ -15,35 +15,37 @@ const BLEND_ADD = 0;
 const BLEND_OVER = 1;
 const BLEND_MULTIPLY = 2;
 
-function normalizeRole(role) {
-  return role === "blocker" ? "blocker" : "light";
+const TYPE_LIGHT = "LIGHT";
+const TYPE_FILTER = "FILTER";
+const TYPE_SOLID = "SOLID";
+
+function normalizeLayerType(value) {
+  const s = String(value || "").trim().toUpperCase();
+  if (s === TYPE_LIGHT || s === TYPE_FILTER || s === TYPE_SOLID) return s;
+  return null;
 }
 
-function isDefaultWhiteHex(hex) {
-  const s = safeHex(hex, "#ffffff");
-  if (s.length === 4) {
-    const r = s[1];
-    const g = s[2];
-    const b = s[3];
-    return `#${r}${r}${g}${g}${b}${b}` === "#ffffff";
+function normalizeBlendMode(value) {
+  if (Number.isFinite(value)) {
+    const v = value | 0;
+    if (v === BLEND_ADD || v === BLEND_OVER || v === BLEND_MULTIPLY) return v;
   }
-  return s === "#ffffff";
+  const s = String(value || "").trim().toUpperCase();
+  if (!s) return null;
+  if (s === "ADD" || s === "BLEND_ADD") return BLEND_ADD;
+  if (s === "OVER" || s === "BLEND_OVER") return BLEND_OVER;
+  if (s === "MULTIPLY" || s === "BLEND_MULTIPLY") return BLEND_MULTIPLY;
+  return null;
 }
 
-function roleToBlendMode(role) {
-  return role === "blocker" ? BLEND_MULTIPLY : BLEND_ADD;
+function typeToBlendMode(type) {
+  if (type === TYPE_SOLID) return BLEND_OVER;
+  if (type === TYPE_FILTER) return BLEND_MULTIPLY;
+  return BLEND_ADD;
 }
 
-function applyRoleToLight(light, role) {
-  const nextRole = normalizeRole(role);
-  light.role = nextRole;
-  light.blendMode = roleToBlendMode(nextRole);
-  if (nextRole === "blocker" && isDefaultWhiteHex(light.color)) {
-    light.color = "#000000";
-    light.colorRawLinear = hexToLinearRgb(light.color);
-    light.colorTintLinear = hexToTintLinearRgb(light.color);
-    light._colorHexCache = light.color;
-  }
+function isBlockerType(type) {
+  return type === TYPE_FILTER || type === TYPE_SOLID;
 }
 
 function dispatchLightsChanged() {
@@ -60,6 +62,7 @@ function dispatchLightsChanged() {
 const appState = {
   backgroundColor: "#000000", // sRGB hex
   creationShape: "circle", // 'circle' | 'rect'
+  creationType: TYPE_LIGHT,
   exposure: 1.2,
   falloffC: 2.0,
   colorSpace: 1, // 0: linear input, 1: sRGB input (palette)
@@ -127,7 +130,7 @@ function draw() {
     noFill();
 
     if (selected) {
-      if (selected.role === "blocker") {
+      if (isBlockerType(selected.type)) {
         noStroke();
         fill(255, 15);
         drawHighlightShape(selected);
@@ -157,7 +160,7 @@ function draw() {
 
 function drawHighlightShape(light) {
   if (!light) return;
-  if (light.type === "circle") {
+  if (light.shape === "circle") {
     const sx = Number(light.sizeX) || 1;
     const sy = Number(light.sizeY) || 1;
     const rx = Math.max(1, (light.radius || 0) * sx);
@@ -178,7 +181,7 @@ function drawHighlightShape(light) {
 }
 
 function drawBlockerDash(light) {
-  if (!light || light.role !== "blocker") return;
+  if (!light || !isBlockerType(light.type)) return;
   const ctx = drawingContext;
   if (!ctx || typeof ctx.setLineDash !== "function") return;
   ctx.setLineDash([5, 5]);
@@ -205,7 +208,12 @@ function mousePressed() {
     dispatchLightsChanged();
   } else {
     // create new light
-    const light = createLightAt(mouseX, mouseY, appState.creationShape);
+    const light = createLightAt(
+      mouseX,
+      mouseY,
+      appState.creationShape,
+      appState.creationType
+    );
     appState.lights.push(light);
     appState.selectedLightId = light.id;
     appState.dragging = true;
@@ -275,7 +283,7 @@ function isPointerOverPanel() {
 function hitTest(x, y) {
   for (let i = appState.lights.length - 1; i >= 0; i--) {
     const l = appState.lights[i];
-    if (l.type === "circle") {
+    if (l.shape === "circle") {
       const sx = Number(l.sizeX) || 1;
       const sy = Number(l.sizeY) || 1;
       const rx = Math.max(1, (l.radius || 0) * sx);
@@ -324,10 +332,10 @@ function updateHoverState() {
 }
 
 // ============ Lights ============
-function createLightAt(x, y, type) {
+function createLightAt(x, y, shape, layerType = TYPE_LIGHT) {
   const id = "light-" + Math.random().toString(36).slice(2, 10);
   const baseColor = "#ffffff";
-  const role = "light";
+  const type = normalizeLayerType(layerType) || TYPE_LIGHT;
   const common = {
     id,
     x,
@@ -336,25 +344,26 @@ function createLightAt(x, y, type) {
     colorRawLinear: hexToLinearRgb(baseColor),
     colorTintLinear: hexToTintLinearRgb(baseColor),
     _colorHexCache: baseColor,
-    role,
-    blendMode: roleToBlendMode(role),
+    type,
+    blendMode: typeToBlendMode(type),
     intensity: 400, // 0..INTENSITY_MAX (HDR)
     feather: 150, // px
     falloffK: 1.5,
     opacity: 1.0,
     rotation: 0.0,
   };
-  if (type === "rect") {
+  applyFilterDefaultBlack(common, type);
+  if (shape === "rect") {
     return {
       ...common,
-      type: "rect",
+      shape: "rect",
       width: 220,
       height: 160,
     };
   }
   return {
     ...common,
-    type: "circle",
+    shape: "circle",
     radius: 150,
     sizeX: 1.0,
     sizeY: 1.0,
@@ -375,6 +384,23 @@ function safeHex(hex, fallback = "#ffffff") {
     .toLowerCase();
   const ok = /^#([0-9a-f]{3}|[0-9a-f]{6})$/.test(s);
   return ok ? s : fallback;
+}
+
+function isDefaultWhiteHex(hex) {
+  const s = String(hex || "")
+    .trim()
+    .toLowerCase();
+  return s === "#fff" || s === "#ffffff";
+}
+
+function applyFilterDefaultBlack(light, nextType) {
+  if (!light) return;
+  if (nextType !== TYPE_FILTER) return;
+  if (!isDefaultWhiteHex(light.color)) return;
+  light.color = "#000000";
+  light.colorRawLinear = hexToLinearRgb(light.color);
+  light.colorTintLinear = hexToTintLinearRgb(light.color);
+  light._colorHexCache = light.color;
 }
 
 function hexToRgb01(hex) {
@@ -433,10 +459,24 @@ function ensureLightCaches(light) {
   }
   if (!light.colorRawLinear) light.colorRawLinear = hexToLinearRgb(hex);
   if (!light.colorTintLinear) light.colorTintLinear = hexToTintLinearRgb(hex);
-  if (light.role !== "light" && light.role !== "blocker") {
-    light.role = "light";
+  const nextShape =
+    light.shape === "rect" || light.shape === "circle" ? light.shape : "circle";
+  if (light.shape !== nextShape) {
+    light.shape = nextShape;
   }
-  const desiredBlend = roleToBlendMode(light.role);
+  if (light.shape === "rect") {
+    if (!Number.isFinite(light.width)) light.width = 220;
+    if (!Number.isFinite(light.height)) light.height = 160;
+  } else {
+    if (!Number.isFinite(light.radius)) light.radius = 150;
+    if (!Number.isFinite(light.sizeX)) light.sizeX = 1.0;
+    if (!Number.isFinite(light.sizeY)) light.sizeY = 1.0;
+  }
+  const nextType = normalizeLayerType(light.type) || TYPE_LIGHT;
+  if (light.type !== nextType) {
+    light.type = nextType;
+  }
+  const desiredBlend = typeToBlendMode(light.type);
   if (light.blendMode !== desiredBlend) light.blendMode = desiredBlend;
 }
 
@@ -477,10 +517,11 @@ function uploadUniforms() {
     ensureLightCaches(l);
     const sx = Number(l.sizeX) || 1.0;
     const sy = Number(l.sizeY) || 1.0;
+    const shape = l.shape || "circle";
     const isStretched =
-      l.type === "circle" &&
+      shape === "circle" &&
       (Math.abs(sx - 1.0) > 0.001 || Math.abs(sy - 1.0) > 0.001);
-    typeArr[i] = l.type === "rect" ? 1 : isStretched ? 2 : 0;
+    typeArr[i] = shape === "rect" ? 1 : isStretched ? 2 : 0;
     // match gl_FragCoord (bottom-left origin)
     posArr[i * 2 + 0] = l.x;
     posArr[i * 2 + 1] = height - l.y;
@@ -493,7 +534,7 @@ function uploadUniforms() {
     intensityArr[i] = constrain(l.intensity ?? 0, 0, INTENSITY_MAX);
     let sizePx = 0;
     let minHalfSize = 0;
-    if (l.type === "circle") {
+    if (shape === "circle") {
       const rx = Math.max(1, (l.radius || 0) * sx);
       const ry = Math.max(1, (l.radius || 0) * sy);
       sizePx = Math.max(rx, ry);
@@ -553,6 +594,11 @@ function setCreationShape(shape) {
   else appState.creationShape = "circle";
 }
 
+function setCreationType(type) {
+  const next = normalizeLayerType(type) || TYPE_LIGHT;
+  appState.creationType = next;
+}
+
 function setExposure(v) {
   appState.exposure = Math.max(0.1, Math.min(5, v));
 }
@@ -573,7 +619,7 @@ function updateSelectedLight(props) {
   if (!l) return;
   if (typeof props.x === "number") l.x = props.x;
   if (typeof props.y === "number") l.y = props.y;
-  if (l.type === "circle") {
+  if (l.shape === "circle") {
     if (typeof props.radius === "number") l.radius = Math.max(1, props.radius);
     if (typeof props.sizeX === "number")
       l.sizeX = constrain(props.sizeX, 0.1, 5);
@@ -601,15 +647,23 @@ function updateSelectedLight(props) {
     l.colorTintLinear = hexToTintLinearRgb(props.color);
     l._colorHexCache = props.color;
   }
-  if (typeof props.role === "string") {
-    const prevRole = l.role;
-    applyRoleToLight(l, props.role);
-    if (prevRole !== l.role) {
+  if (typeof props.type === "string") {
+    const prevType = l.type;
+    const nextType = normalizeLayerType(props.type) || TYPE_LIGHT;
+    l.type = nextType;
+    l.blendMode = typeToBlendMode(nextType);
+    applyFilterDefaultBlack(l, nextType);
+    if (prevType !== l.type) {
       emitSelectionChange();
       dispatchLightsChanged();
     }
-  } else if (typeof props.blendMode === "number") {
-    l.blendMode = props.blendMode | 0;
+  } else if (props.blendMode != null) {
+    const normalizedBlend = normalizeBlendMode(props.blendMode);
+    if (normalizedBlend != null) {
+      const inferredType = resolveLayerType({ blendMode: normalizedBlend });
+      l.type = inferredType;
+      l.blendMode = typeToBlendMode(inferredType);
+    }
   }
 }
 
@@ -621,6 +675,16 @@ function emitSelectionChange() {
 
 function getState() {
   return { ...appState };
+}
+
+function addLayerAtCenter(type) {
+  const cx = Math.round(width / 2);
+  const cy = Math.round(height / 2);
+  const light = createLightAt(cx, cy, appState.creationShape, type);
+  appState.lights.push(light);
+  appState.selectedLightId = light.id;
+  emitSelectionChange();
+  dispatchLightsChanged();
 }
 
 function deleteSelectedLight() {
@@ -689,17 +753,45 @@ function clamp(v, lo, hi, fallback) {
   return Math.max(lo, Math.min(hi, n));
 }
 
+function resolveLayerType(raw) {
+  const direct = normalizeLayerType(raw.type);
+  if (direct) return direct;
+  const mode = normalizeBlendMode(
+    raw.blendMode != null ? raw.blendMode : raw.mode
+  );
+  if (mode === BLEND_OVER) return TYPE_SOLID;
+  if (mode === BLEND_MULTIPLY) return TYPE_FILTER;
+  if (mode === BLEND_ADD) return TYPE_LIGHT;
+  if (raw.role === "blocker") return TYPE_FILTER;
+  if (raw.role === "light") return TYPE_LIGHT;
+  return TYPE_LIGHT;
+}
+
+function resolveShape(raw) {
+  const shape = String(raw.shape || "")
+    .trim()
+    .toLowerCase();
+  if (shape === "rect" || shape === "circle") return shape;
+  if (shape === "ellipse") return "circle";
+  const type = String(raw.type || "")
+    .trim()
+    .toLowerCase();
+  if (type === "rect" || type === "circle") return type;
+  if (type === "ellipse") return "circle";
+  return "circle";
+}
+
 function sanitizeLight(raw) {
   if (!raw || typeof raw !== "object") return null;
 
+  const shape = resolveShape(raw);
   const isLegacyEllipse = raw.type === "ellipse";
-  const type = raw.type === "rect" ? "rect" : "circle";
   const id =
     typeof raw.id === "string" && raw.id.length > 0
       ? raw.id
       : "light-" + Math.random().toString(36).slice(2, 10);
 
-  const role = normalizeRole(raw.role);
+  const layerType = resolveLayerType(raw);
   const canvasW = Math.max(1, width || 1);
   const canvasH = Math.max(1, height || 1);
   const maxRectW = Math.max(10, canvasW * 2);
@@ -710,20 +802,20 @@ function sanitizeLight(raw) {
   );
   const base = {
     id,
-    type,
+    shape,
     x: clamp(raw.x, 0, canvasW, canvasW / 2),
     y: clamp(raw.y, 0, canvasH, canvasH / 2),
-    color: typeof raw.color === "string" ? raw.color : "#ffffff",
+    color: safeHex(raw.color, "#ffffff"),
     intensity: clamp(raw.intensity, 0, INTENSITY_MAX, 400),
     feather: clamp(raw.feather, 0, FEATHER_UI_MAX, 150),
     falloffK: clamp(raw.falloffK, 0.1, 8, 1.5),
     opacity: clamp(raw.opacity, 0, 1, 1),
     rotation: clamp(raw.rotation, -Math.PI, Math.PI, 0),
-    role,
-    blendMode: roleToBlendMode(role),
+    type: layerType,
+    blendMode: typeToBlendMode(layerType),
   };
 
-  if (type === "rect") {
+  if (shape === "rect") {
     base.width = clamp(raw.width, 10, maxRectW, 220);
     base.height = clamp(raw.height, 10, maxRectH, 160);
   } else {
@@ -734,9 +826,7 @@ function sanitizeLight(raw) {
     base.sizeY = clamp(raw.sizeY, 0.1, 5, 1);
   }
 
-  if (role === "blocker" && isDefaultWhiteHex(base.color)) {
-    base.color = "#000000";
-  }
+  applyFilterDefaultBlack(base, layerType);
   base.colorRawLinear = hexToLinearRgb(base.color);
   base.colorTintLinear = hexToTintLinearRgb(base.color);
   base._colorHexCache = base.color;
@@ -753,10 +843,15 @@ function serializePreset() {
     falloffC: s.falloffC,
     colorSpace: s.colorSpace,
     lights: (s.lights || []).map((l) => {
+      const normalizedType =
+        normalizeLayerType(l.type) ||
+        resolveLayerType({ blendMode: l.blendMode, role: l.role });
+      const normalizedShape = resolveShape(l);
+      const normalizedBlend = typeToBlendMode(normalizedType);
       const out = {
         id: l.id,
-        type: l.type,
-        role: l.role === "blocker" ? "blocker" : "light",
+        type: normalizedType,
+        shape: normalizedShape,
         x: l.x,
         y: l.y,
         color: l.color,
@@ -765,9 +860,9 @@ function serializePreset() {
         falloffK: l.falloffK,
         opacity: l.opacity,
         rotation: l.rotation,
-        blendMode: l.blendMode ?? BLEND_ADD,
+        blendMode: normalizedBlend,
       };
-      if (l.type === "rect") {
+      if (normalizedShape === "rect") {
         out.width = l.width;
         out.height = l.height;
       } else {
@@ -818,12 +913,14 @@ function applyPreset(preset) {
 window.app = {
   setBackgroundColor,
   setCreationShape,
+  setCreationType,
   setExposure,
   setFalloffC,
   setPreviewMode,
   updateSelectedLight,
   getSelectedLight,
   getState,
+  addLayerAtCenter,
   deleteSelectedLight,
   clearSelection,
   selectLightById,

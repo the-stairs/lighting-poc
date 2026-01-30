@@ -21,7 +21,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const noSel = $("#no-selection");
   const controls = $("#light-controls");
-  const selectedRole = $("#selectedRole");
+  const selectedType = $("#selectedType");
 
   const circleSizeGroup = $("#circle-size");
   const rectSizeGroup = $("#rect-size");
@@ -76,6 +76,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const btnBringToFront = $("#btnBringToFront");
   const btnSendToBack = $("#btnSendToBack");
   const layerList = $("#layerList");
+  const addLightBtn = $("#addLightBtn");
+  const addFilterBtn = $("#addFilterBtn");
+  const addSolidBtn = $("#addSolidBtn");
+  const opacityLabel = $("#opacityLabel");
 
   // shape radios
   const shapeRadios = document.querySelectorAll('input[name="shape"]');
@@ -401,6 +405,25 @@ document.addEventListener("DOMContentLoaded", () => {
       })
     );
 
+    function addLayerOfType(type) {
+      if (!window.app || typeof window.app.addLayerAtCenter !== "function")
+        return;
+      if (typeof window.app.setCreationType === "function") {
+        window.app.setCreationType(type);
+      }
+      window.app.addLayerAtCenter(type);
+    }
+
+    if (addLightBtn) {
+      addLightBtn.addEventListener("click", () => addLayerOfType("LIGHT"));
+    }
+    if (addFilterBtn) {
+      addFilterBtn.addEventListener("click", () => addLayerOfType("FILTER"));
+    }
+    if (addSolidBtn) {
+      addSolidBtn.addEventListener("click", () => addLayerOfType("SOLID"));
+    }
+
     // Exposure
     if (exposureSlider) {
       exposureSlider.addEventListener("input", (e) => {
@@ -447,7 +470,7 @@ document.addEventListener("DOMContentLoaded", () => {
         controls.setAttribute("aria-disabled", enabled ? "false" : "true");
       }
       [
-        selectedRole,
+        selectedType,
         sizeMinus,
         sizeSlider,
         sizePlus,
@@ -506,7 +529,7 @@ document.addEventListener("DOMContentLoaded", () => {
           title: `feather ui=${ui} => applied=--px (cap=--)`,
         };
       const cap =
-        light.type === "circle"
+        light.shape === "circle"
           ? Math.max(
               0,
               (light.radius || 0) * Math.max(light.sizeX || 1, light.sizeY || 1)
@@ -530,7 +553,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (ellipseControls) ellipseControls.style.display = "none";
         return;
       }
-      if (light.type === "circle") {
+      if (light.shape === "circle") {
         circleSizeGroup.style.display = ""; // show circle controls
         rectSizeGroup.style.display = "none"; // hide rect controls
         if (ellipseControls) ellipseControls.style.display = "flex";
@@ -549,6 +572,32 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       const featherUi = Number(featherUiValue);
       falloffHint.style.display = featherUi === 0 ? "block" : "none";
+    }
+
+    function normalizeLayerType(type) {
+      const s = String(type || "").trim().toUpperCase();
+      if (s === "FILTER" || s === "SOLID" || s === "LIGHT") return s;
+      return "LIGHT";
+    }
+
+    function updateTypeUi(layerType) {
+      const t = normalizeLayerType(layerType);
+      if (opacityLabel) {
+        if (t === "FILTER") {
+          opacityLabel.textContent = "Strength";
+          opacityLabel.title =
+            "Filter에서 흰색은 투과 100%에 가까워 효과가 거의 없을 수 있어요.\n흰 판이 필요하면 Solid를 사용하세요.";
+        } else if (t === "SOLID") {
+          opacityLabel.textContent = "Opacity";
+          opacityLabel.title = "";
+        } else {
+          opacityLabel.textContent = "Intensity";
+          opacityLabel.title = "";
+        }
+      }
+      if (blockerColorHint) {
+        blockerColorHint.style.display = t === "FILTER" ? "block" : "none";
+      }
     }
 
     let dragId = null;
@@ -576,24 +625,29 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const label = document.createElement("div");
         label.className = "layer-label";
-        const isBlocker = light.role === "blocker";
-        const titleText = `${isBlocker ? "Blocker" : "Light"} / ${
-          light.type === "rect" ? "Rect" : "Circle"
-        } / ${light.id || ""}`;
+        const layerType = normalizeLayerType(light.type);
+        const shape = light.shape === "rect" ? "Rect" : "Circle";
+        const titleText = `${layerType} / ${shape} / ${light.id || ""}`;
         row.title = titleText;
         label.title = titleText;
-        const roleBadge = document.createElement("span");
-        roleBadge.className = "layer-badge";
-        roleBadge.textContent = isBlocker ? "B" : "L";
-        roleBadge.title = isBlocker ? "Blocker · Multiply" : "Light · Add";
+        const typeBadge = document.createElement("span");
+        typeBadge.className = "layer-badge layer-badge-type";
+        typeBadge.textContent = layerType;
+        if (layerType === "SOLID") {
+          typeBadge.title = "Solid · Over";
+        } else if (layerType === "FILTER") {
+          typeBadge.title = "Filter · Multiply";
+        } else {
+          typeBadge.title = "Light · Add";
+        }
         const shapeBadge = document.createElement("span");
-        shapeBadge.className = "layer-badge";
-        shapeBadge.textContent = light.type === "rect" ? "□" : "○";
-        shapeBadge.title = light.type === "rect" ? "Rect" : "Circle";
+        shapeBadge.className = "layer-badge layer-badge-shape";
+        shapeBadge.textContent = light.shape === "rect" ? "□" : "○";
+        shapeBadge.title = light.shape === "rect" ? "Rect" : "Circle";
         const idText = document.createElement("span");
         const shortId = light.id ? light.id.slice(-4) : "";
         idText.textContent = shortId ? `#${shortId}` : "";
-        label.appendChild(roleBadge);
+        label.appendChild(typeBadge);
         label.appendChild(shapeBadge);
         label.appendChild(idText);
 
@@ -686,11 +740,15 @@ document.addEventListener("DOMContentLoaded", () => {
         if (state) renderLayerList(state.lights, state.selectedLightId);
         return;
       }
-      if (selectedRole) {
-        selectedRole.value = light.role === "blocker" ? "blocker" : "light";
+      if (selectedType) {
+        selectedType.value = normalizeLayerType(light.type);
+      }
+      updateTypeUi(light.type);
+      if (typeof window.app.setCreationType === "function") {
+        window.app.setCreationType(light.type);
       }
 
-      if (light.type === "circle") {
+      if (light.shape === "circle") {
         sizeSlider.value = Math.round(light.radius);
         sizeValue.textContent = sizeSlider.value;
         const sx = Number(light.sizeX) || 1;
@@ -722,10 +780,7 @@ document.addEventListener("DOMContentLoaded", () => {
       softnessValue.textContent = featherLabel.text;
       softnessValue.title = featherLabel.title;
       lightColor.value = light.color;
-      if (blockerColorHint) {
-        blockerColorHint.style.display =
-          light.role === "blocker" ? "block" : "none";
-      }
+      updateTypeUi(light.type);
       falloffSlider.value = (light.falloffK || 1.5).toFixed(1);
       falloffValue.textContent = `${falloffSlider.value}`;
       updateFalloffHint(light, softnessSlider.value);
@@ -740,7 +795,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (sizeValue) sizeValue.textContent = v;
         const l = window.app.getSelectedLight();
         if (!l) return;
-        if (l.type === "circle") {
+        if (l.shape === "circle") {
           window.app.updateSelectedLight({ radius: v });
         }
       });
@@ -750,7 +805,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const v = Math.max(0.1, Math.min(3, Number(e.target.value)));
         if (sizeXValue) sizeXValue.textContent = v.toFixed(2);
         const l = window.app.getSelectedLight();
-        if (!l || l.type !== "circle") return;
+        if (!l || l.shape !== "circle") return;
         window.app.updateSelectedLight({ sizeX: v });
       });
     }
@@ -759,14 +814,14 @@ document.addEventListener("DOMContentLoaded", () => {
         const v = Math.max(0.1, Math.min(3, Number(e.target.value)));
         if (sizeYValue) sizeYValue.textContent = v.toFixed(2);
         const l = window.app.getSelectedLight();
-        if (!l || l.type !== "circle") return;
+        if (!l || l.shape !== "circle") return;
         window.app.updateSelectedLight({ sizeY: v });
       });
     }
     if (makeCircleByXBtn) {
       makeCircleByXBtn.addEventListener("click", () => {
         const l = window.app.getSelectedLight();
-        if (!l || l.type !== "circle") return;
+        if (!l || l.shape !== "circle") return;
         const sx = Number(l.sizeX) || 1;
         window.app.updateSelectedLight({ sizeY: sx });
         if (sizeYSlider) sizeYSlider.value = sx.toFixed(2);
@@ -776,7 +831,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (makeCircleByYBtn) {
       makeCircleByYBtn.addEventListener("click", () => {
         const l = window.app.getSelectedLight();
-        if (!l || l.type !== "circle") return;
+        if (!l || l.shape !== "circle") return;
         const sy = Number(l.sizeY) || 1;
         window.app.updateSelectedLight({ sizeX: sy });
         if (sizeXSlider) sizeXSlider.value = sy.toFixed(2);
@@ -855,7 +910,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const cx = Math.round(canvasW / 2);
       const cy = Math.round(canvasH / 2);
 
-      if (l.type === "rect") {
+      if (l.shape === "rect") {
         window.app.updateSelectedLight({
           x: cx,
           y: cy,
@@ -887,21 +942,18 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    if (selectedRole) {
-      selectedRole.addEventListener("change", (e) => {
-        const role = e.target.value === "blocker" ? "blocker" : "light";
-        const current =
-          window.app.getSelectedLight && window.app.getSelectedLight();
-        const isWhite =
-          current &&
-          typeof current.color === "string" &&
-          ["#ffffff", "#fff"].includes(current.color.toLowerCase());
-        if (role === "blocker" && isWhite) {
-          window.app.updateSelectedLight({ role, color: "#000000" });
-          if (lightColor) lightColor.value = "#000000";
-          return;
+    if (selectedType) {
+      selectedType.addEventListener("change", (e) => {
+        const type = normalizeLayerType(e.target.value);
+        if (typeof window.app.setCreationType === "function") {
+          window.app.setCreationType(type);
         }
-        window.app.updateSelectedLight({ role });
+        window.app.updateSelectedLight({ type });
+        updateTypeUi(type);
+        const updated = window.app.getSelectedLight && window.app.getSelectedLight();
+        if (updated && lightColor) {
+          lightColor.value = updated.color || "#ffffff";
+        }
       });
     }
 
