@@ -68,6 +68,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const falloffCPlus = $("#falloffCPlus");
   const lightColor = $("#lightColor");
   const deleteLightBtn = $("#deleteLightBtn");
+  const fitCanvasBtn = $("#fitCanvasBtn");
   const exportBtn = $("#exportPresetBtn");
   const presetFileName = $("#presetFileName");
   const importBtn = $("#importPresetBtn");
@@ -88,6 +89,26 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   ensureAppReady(() => {
+    function setSliderBounds(slider, { min, max, step }) {
+      if (!slider) return;
+      if (min != null) slider.min = String(min);
+      if (max != null) slider.max = String(max);
+      if (step != null) slider.step = String(step);
+    }
+
+    function syncSizeBoundsByCanvas(canvasW, canvasH) {
+      const w = Math.max(1, Number(canvasW) || 1);
+      const h = Math.max(1, Number(canvasH) || 1);
+      const rectMaxW = Math.max(10, w * 2);
+      const rectMaxH = Math.max(10, h * 2);
+      const diag = Math.sqrt(w * w + h * h);
+      const radiusMax = Math.max(10, diag);
+
+      setSliderBounds(widthSlider, { min: 10, max: rectMaxW, step: 1 });
+      setSliderBounds(heightSlider, { min: 10, max: rectMaxH, step: 1 });
+      setSliderBounds(sizeSlider, { min: 10, max: radiusMax, step: 1 });
+    }
+
     function syncFalloffCFromState() {
       if (!falloffCSlider || !falloffCValue || !window.app) return;
       const state = window.app.getState && window.app.getState();
@@ -454,6 +475,7 @@ document.addEventListener("DOMContentLoaded", () => {
         falloffPlus,
         lightColor,
         deleteLightBtn,
+        fitCanvasBtn,
         btnBringToFront,
         btnSendToBack,
       ].forEach((el) => {
@@ -823,6 +845,48 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
+    function fitSelectedToCanvas() {
+      const l = window.app.getSelectedLight && window.app.getSelectedLight();
+      if (!l) return;
+      const canvasW =
+        document.getElementById("canvas-container")?.clientWidth ||
+        window.innerWidth;
+      const canvasH = window.innerHeight;
+      const cx = Math.round(canvasW / 2);
+      const cy = Math.round(canvasH / 2);
+
+      if (l.type === "rect") {
+        window.app.updateSelectedLight({
+          x: cx,
+          y: cy,
+          width: canvasW,
+          height: canvasH,
+        });
+        if (widthSlider) widthSlider.value = String(Math.round(canvasW));
+        if (heightSlider) heightSlider.value = String(Math.round(canvasH));
+        if (widthValue) widthValue.textContent = String(Math.round(canvasW));
+        if (heightValue) heightValue.textContent = String(Math.round(canvasH));
+      } else {
+        const r = Math.ceil(Math.sqrt(canvasW * canvasW + canvasH * canvasH) / 2);
+        window.app.updateSelectedLight({
+          x: cx,
+          y: cy,
+          radius: r,
+          sizeX: 1.0,
+          sizeY: 1.0,
+          rotation: 0.0,
+        });
+        if (sizeSlider) sizeSlider.value = String(r);
+        if (sizeValue) sizeValue.textContent = String(r);
+      }
+    }
+
+    if (fitCanvasBtn) {
+      fitCanvasBtn.addEventListener("click", () => {
+        fitSelectedToCanvas();
+      });
+    }
+
     if (selectedRole) {
       selectedRole.addEventListener("change", (e) => {
         const role = e.target.value === "blocker" ? "blocker" : "light";
@@ -920,6 +984,14 @@ document.addEventListener("DOMContentLoaded", () => {
     if (exposureSlider) {
       exposureSlider.dispatchEvent(new Event("input", { bubbles: true }));
     }
+    syncSizeBoundsByCanvas(
+      document.getElementById("canvas-container")?.clientWidth,
+      window.innerHeight
+    );
+    window.addEventListener("app:canvasResized", (e) => {
+      const d = e.detail || {};
+      syncSizeBoundsByCanvas(d.width, d.height);
+    });
     syncFalloffCFromState();
     setControlsEnabled(false);
     updateVisibilityByType(null);
@@ -939,6 +1011,7 @@ document.addEventListener("DOMContentLoaded", () => {
     enableOutputNumberEdit(sizeXValue, sizeXSlider, { decimals: 2 });
     enableOutputNumberEdit(sizeYValue, sizeYSlider, { decimals: 2 });
   });
+
 
   // Panel toggle button and hotkey
   function updateToggleButtonLabel() {

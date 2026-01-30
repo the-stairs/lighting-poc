@@ -93,6 +93,9 @@ function windowResized() {
   const w = container.clientWidth;
   const h = window.innerHeight;
   resizeCanvas(w, h);
+  dispatchEvent(
+    new CustomEvent("app:canvasResized", { detail: { width: w, height: h } })
+  );
 }
 
 function draw() {
@@ -568,6 +571,8 @@ function setPreviewMode(enabled) {
 function updateSelectedLight(props) {
   const l = getSelectedLight();
   if (!l) return;
+  if (typeof props.x === "number") l.x = props.x;
+  if (typeof props.y === "number") l.y = props.y;
   if (l.type === "circle") {
     if (typeof props.radius === "number") l.radius = Math.max(1, props.radius);
     if (typeof props.sizeX === "number")
@@ -695,11 +700,19 @@ function sanitizeLight(raw) {
       : "light-" + Math.random().toString(36).slice(2, 10);
 
   const role = normalizeRole(raw.role);
+  const canvasW = Math.max(1, width || 1);
+  const canvasH = Math.max(1, height || 1);
+  const maxRectW = Math.max(10, canvasW * 2);
+  const maxRectH = Math.max(10, canvasH * 2);
+  const maxRadius = Math.max(
+    10,
+    Math.sqrt(canvasW * canvasW + canvasH * canvasH)
+  );
   const base = {
     id,
     type,
-    x: clamp(raw.x, 0, width, width / 2),
-    y: clamp(raw.y, 0, height, height / 2),
+    x: clamp(raw.x, 0, canvasW, canvasW / 2),
+    y: clamp(raw.y, 0, canvasH, canvasH / 2),
     color: typeof raw.color === "string" ? raw.color : "#ffffff",
     intensity: clamp(raw.intensity, 0, INTENSITY_MAX, 400),
     feather: clamp(raw.feather, 0, FEATHER_UI_MAX, 150),
@@ -711,11 +724,11 @@ function sanitizeLight(raw) {
   };
 
   if (type === "rect") {
-    base.width = clamp(raw.width, 10, 1600, 220);
-    base.height = clamp(raw.height, 10, 1200, 160);
+    base.width = clamp(raw.width, 10, maxRectW, 220);
+    base.height = clamp(raw.height, 10, maxRectH, 160);
   } else {
-    const fallbackRadius = clamp(raw.radius, 10, 1200, 150);
-    const legacyRadius = clamp(raw.baseSize, 10, 1200, fallbackRadius);
+    const fallbackRadius = clamp(raw.radius, 10, maxRadius, 150);
+    const legacyRadius = clamp(raw.baseSize, 10, maxRadius, fallbackRadius);
     base.radius = isLegacyEllipse ? legacyRadius : fallbackRadius;
     base.sizeX = clamp(raw.sizeX, 0.1, 5, 1);
     base.sizeY = clamp(raw.sizeY, 0.1, 5, 1);
