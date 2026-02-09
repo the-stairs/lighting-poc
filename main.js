@@ -30,7 +30,9 @@ const TYPE_FILTER = "FILTER";
 const TYPE_SOLID = "SOLID";
 
 function normalizeLayerType(value) {
-  const s = String(value || "").trim().toUpperCase();
+  const s = String(value || "")
+    .trim()
+    .toUpperCase();
   if (s === TYPE_LIGHT || s === TYPE_FILTER || s === TYPE_SOLID) return s;
   return null;
 }
@@ -40,7 +42,9 @@ function normalizeBlendMode(value) {
     const v = value | 0;
     if (v === BLEND_ADD || v === BLEND_OVER || v === BLEND_MULTIPLY) return v;
   }
-  const s = String(value || "").trim().toUpperCase();
+  const s = String(value || "")
+    .trim()
+    .toUpperCase();
   if (!s) return null;
   if (s === "ADD" || s === "BLEND_ADD") return BLEND_ADD;
   if (s === "OVER" || s === "BLEND_OVER") return BLEND_OVER;
@@ -109,7 +113,7 @@ const displayStateMap = {};
 
 function getDisplayTargetId() {
   const el = document.getElementById("displaySelect");
-  return el ? (el.value || "all") : "all";
+  return el ? el.value || "1" : "1";
 }
 
 function broadcastState() {
@@ -153,8 +157,8 @@ function getDefaultPreset() {
 
 function setEditTarget(targetId) {
   if (appConfig.role !== "control") return;
-  var id = (targetId && String(targetId).trim()) || "all";
-  var preset = displayStateMap[id] || getDefaultPreset();
+  const id = (targetId && String(targetId).trim()) || "all";
+  const preset = displayStateMap[id] || getDefaultPreset();
   applyPresetToState(appState, preset);
   emitSelectionChange();
   dispatchLightsChanged();
@@ -166,40 +170,49 @@ function initRealtime() {
 
   realtimeChannel = client.channel(REALTIME_CHANNEL_NAME);
 
-  realtimeChannel.on(
-    "broadcast",
-    { event: REALTIME_EVENT },
-    function (event) {
-      const body = event && event.payload;
-      if (!body || typeof body.type !== "string") return;
+  realtimeChannel.on("broadcast", { event: REALTIME_EVENT }, function (event) {
+    const body = event && event.payload;
+    if (!body || typeof body.type !== "string") return;
 
-      if (appConfig.role === "control" && body.type === "REQUEST_LIVE") {
-        var targetId = body.targetId || "all";
-        var snap = serializePreset();
-        displayStateMap[targetId] = snap;
-        realtimeChannel.send({
+    if (appConfig.role === "control" && body.type === "REQUEST_LIVE") {
+      const targetId = body.targetId || "all";
+      const snap = serializePreset();
+      displayStateMap[targetId] = snap;
+      realtimeChannel
+        .send({
           type: "broadcast",
           event: REALTIME_EVENT,
           payload: { type: "LIVE_STATE", targetId: targetId, payload: snap },
-        }).catch(function (e) { console.warn("[realtime] send failed", e); });
-        return;
-      }
-
-      if (appConfig.role === "display" && body.type === "LIVE_STATE") {
-        var targetId = body.targetId;
-        if (targetId !== "all" && String(targetId) !== String(appConfig.displayId)) return;
-        applyPresetToState(displayState, body.payload || {});
-      }
+        })
+        .catch(function (e) {
+          console.warn("[realtime] send failed", e);
+        });
+      return;
     }
-  );
+
+    if (appConfig.role === "display" && body.type === "LIVE_STATE") {
+      const targetId = body.targetId;
+      if (
+        targetId !== "all" &&
+        String(targetId) !== String(appConfig.displayId)
+      )
+        return;
+      applyPresetToState(displayState, body.payload || {});
+    }
+  });
 
   realtimeChannel.subscribe(function (status) {
     if (status === "SUBSCRIBED" && appConfig.role === "display") {
-      realtimeChannel.send({
-        type: "broadcast",
-        event: REALTIME_EVENT,
-        payload: { type: "REQUEST_LIVE", targetId: appConfig.displayId || "all" },
-      }).catch(function () {});
+      realtimeChannel
+        .send({
+          type: "broadcast",
+          event: REALTIME_EVENT,
+          payload: {
+            type: "REQUEST_LIVE",
+            targetId: appConfig.displayId || "all",
+          },
+        })
+        .catch(function () {});
     }
   });
 }
@@ -256,39 +269,39 @@ function draw() {
         ? appState.lights[appState.hoveredIdx]
         : null;
     if (selected || hovered) {
-    push();
-    // map top-left (0,0) to WEBGL coordinates
-    resetMatrix();
-    translate(-width / 2, -height / 2, 0);
-    noFill();
+      push();
+      // map top-left (0,0) to WEBGL coordinates
+      resetMatrix();
+      translate(-width / 2, -height / 2, 0);
+      noFill();
 
-    if (selected) {
-      if (isBlockerType(selected.type)) {
-        noStroke();
-        fill(255, 15);
+      if (selected) {
+        if (isBlockerType(selected.type)) {
+          noStroke();
+          fill(255, 15);
+          drawHighlightShape(selected);
+          noFill();
+        }
+        stroke(0);
+        strokeWeight(3.5);
         drawHighlightShape(selected);
-        noFill();
+        stroke(255);
+        strokeWeight(1.5);
+        drawHighlightShape(selected);
+        drawBlockerDash(selected);
       }
-      stroke(0);
-      strokeWeight(3.5);
-      drawHighlightShape(selected);
-      stroke(255);
-      strokeWeight(1.5);
-      drawHighlightShape(selected);
-      drawBlockerDash(selected);
-    }
 
-    if (hovered && (!selected || hovered.id !== selected.id)) {
-      stroke(0, 100);
-      strokeWeight(2.5);
-      drawHighlightShape(hovered);
-      stroke(255, 200);
-      strokeWeight(1.5);
-      drawHighlightShape(hovered);
-      drawBlockerDash(hovered);
+      if (hovered && (!selected || hovered.id !== selected.id)) {
+        stroke(0, 100);
+        strokeWeight(2.5);
+        drawHighlightShape(hovered);
+        stroke(255, 200);
+        strokeWeight(1.5);
+        drawHighlightShape(hovered);
+        drawBlockerDash(hovered);
+      }
+      pop();
     }
-    pop();
-  }
   }
 }
 
@@ -1038,7 +1051,8 @@ function applyPresetToState(targetState, preset) {
       ? preset.backgroundColor
       : targetState.backgroundColor;
 
-  targetState.creationShape = preset.creationShape === "rect" ? "rect" : "circle";
+  targetState.creationShape =
+    preset.creationShape === "rect" ? "rect" : "circle";
   targetState.exposure = clamp(preset.exposure, 0.1, 5, targetState.exposure);
   targetState.falloffC = clamp(preset.falloffC, 0.2, 6.0, targetState.falloffC);
   targetState.colorSpace = preset.colorSpace === 0 ? 0 : 1;
@@ -1053,7 +1067,9 @@ function applyPresetToState(targetState, preset) {
 
   if (targetState === appState) {
     const selectedId =
-      typeof preset.selectedLightId === "string" ? preset.selectedLightId : null;
+      typeof preset.selectedLightId === "string"
+        ? preset.selectedLightId
+        : null;
     appState.selectedLightId =
       selectedId && appState.lights.some((l) => l.id === selectedId)
         ? selectedId
