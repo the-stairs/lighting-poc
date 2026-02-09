@@ -116,22 +116,27 @@ function getDisplayTargetId() {
   return el ? el.value || "1" : "1";
 }
 
+function broadcastSnapshotToTarget(snapshot, targetId) {
+  if (appConfig.role !== "control" || !realtimeChannel) return;
+  displayStateMap[targetId] = snapshot;
+  realtimeChannel
+    .send({
+      type: "broadcast",
+      event: REALTIME_EVENT,
+      payload: { type: "LIVE_STATE", targetId: targetId, payload: snapshot },
+    })
+    .catch(function (err) {
+      console.warn("[realtime] broadcast failed", err);
+    });
+}
+
 function broadcastState() {
   if (appConfig.role !== "control") return;
   const client = window.supabaseClient;
   if (!client) return;
   const targetId = getDisplayTargetId();
   const payload = serializePreset();
-  displayStateMap[targetId] = payload;
-  realtimeChannel
-    .send({
-      type: "broadcast",
-      event: REALTIME_EVENT,
-      payload: { type: "LIVE_STATE", targetId, payload },
-    })
-    .catch(function (err) {
-      console.warn("[realtime] broadcast failed", err);
-    });
+  broadcastSnapshotToTarget(payload, targetId);
 }
 
 function scheduleSyncToDisplay() {
@@ -1081,10 +1086,88 @@ function applyPresetToState(targetState, preset) {
   return true;
 }
 
-function applyPreset(preset) {
+function exportPresetData(exportOptions) {
+  if (exportOptions && exportOptions.applyToAllDisplays) {
+    const displays = {};
+    ["1", "2", "3", "4", "5", "6"].forEach((id) => {
+      displays[id] = displayStateMap[id] || getDefaultPreset();
+    });
+    return { version: 1, scope: "all", displays: displays };
+  }
+  return serializePreset();
+}
+
+function resetDisplayToDefault(id) {
+  const def = getDefaultPreset();
+  displayStateMap[id] = def;
+  broadcastSnapshotToTarget(def, id);
+}
+
+function resetCurrentDisplayToDefault() {
+  const def = getDefaultPreset();
+  applyPresetToState(appState, def);
+  const currentId = getDisplayTargetId();
+  displayStateMap[currentId] = def;
+  broadcastSnapshotToTarget(def, currentId);
+}
+
+function resetAllDisplaysToDefault() {
+  ["1", "2", "3", "4", "5", "6"].forEach((id) => resetDisplayToDefault(id));
+  const currentId = getDisplayTargetId();
+  applyPresetToState(appState, displayStateMap[currentId] || getDefaultPreset());
+}
+
+function applyPreset(preset, options) {
+  const isAllFormat =
+    preset &&
+    preset.scope === "all" &&
+    preset.displays &&
+    typeof preset.displays === "object";
+  const applyToAll = options && options.applyToAllDisplays;
+
+  if (applyToAll && isAllFormat) {
+    resetAllDisplaysToDefault();
+    ["1", "2", "3", "4", "5", "6"].forEach((id) => {
+      const p = preset.displays[id];
+      if (p && typeof p === "object") {
+        displayStateMap[id] = p;
+        broadcastSnapshotToTarget(p, id);
+      }
+    });
+    const currentId = getDisplayTargetId();
+    applyPresetToState(appState, displayStateMap[currentId] || getDefaultPreset());
+    return true;
+  }
+
+  if (!applyToAll && isAllFormat) {
+    resetCurrentDisplayToDefault();
+    const currentId = getDisplayTargetId();
+    const p = preset.displays[currentId];
+    if (p && typeof p === "object") {
+      applyPresetToState(appState, p);
+      displayStateMap[currentId] = p;
+      broadcastSnapshotToTarget(p, currentId);
+      return true;
+    }
+    return true;
+  }
+
+  if (applyToAll) {
+    resetAllDisplaysToDefault();
+  } else {
+    resetCurrentDisplayToDefault();
+  }
   const ok = applyPresetToState(appState, preset);
-  if (ok) scheduleSyncToDisplay();
-  return ok;
+  if (!ok) return false;
+  if (applyToAll) {
+    const snapshot = serializePreset();
+    ["1", "2", "3", "4", "5", "6"].forEach((id) => {
+      broadcastSnapshotToTarget(snapshot, id);
+    });
+  } else {
+    scheduleSyncToDisplay();
+  }
+  return true;
 }
 
 // expose API
@@ -1106,6 +1189,7 @@ window.app = {
   sendToBackById,
   reorderLightsById,
   setEditTarget,
-  exportPreset: () => serializePreset(),
-  importPreset: (presetObj) => applyPreset(presetObj),
+  exportPreset: (exportOptions) => exportPresetData(exportOptions),
+  importPreset: (presetObj, importOptions) =>
+    applyPreset(presetObj, importOptions),
 };

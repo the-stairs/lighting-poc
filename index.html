@@ -57,6 +57,19 @@
         <section class="group">
           <h2>프리셋</h2>
           <div class="row">
+            <span class="grow">불러오기/내보내기 적용 범위</span>
+          </div>
+          <div class="row">
+            <label
+              ><input type="radio" name="presetScope" value="current" checked />
+              현재 디스플레이만</label
+            >
+            <label
+              ><input type="radio" name="presetScope" value="all" /> 모든
+              디스플레이</label
+            >
+          </div>
+          <div class="row">
             <button id="exportPresetBtn" type="button">Export JSON</button>
             <button id="importPresetBtn" type="button">Import JSON</button>
             <input
