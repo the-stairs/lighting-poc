@@ -509,26 +509,8 @@
       ></main>
     </div>
 
-    <script>
-      (function () {
-        var params = new URLSearchParams(window.location.search);
-        var role = params.get("role");
-        var nav = document.getElementById("nav-page");
-        var app = document.getElementById("app-page");
-        if (role === "control" || role === "display") {
-          if (nav) nav.hidden = true;
-          if (app) app.hidden = false;
-        } else {
-          if (nav) nav.hidden = false;
-          if (app) app.hidden = true;
-        }
-      })();
-    </script>
-    <script src="config.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-    <script src="supabase.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/p5@1.9.2/lib/p5.min.js"></script>
-    <script src="main.js"></script>
-    <script src="ui.js"></script>
+    <script type="module" src="/nav.js"></script>
+    <script type="module" src="/main.js"></script>
+    <script type="module" src="/ui.js"></script>
   </body>
 </html>
