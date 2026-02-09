@@ -230,7 +230,7 @@ function initP5Sketch() {
     p5Sketch = p;
 
     p.preload = function () {
-      glShader = p.loadShader("shader.vert", "shader.frag");
+      glShader = p.loadShader("/shader.vert", "/shader.frag");
     };
 
     p.setup = function () {
