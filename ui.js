@@ -81,8 +81,20 @@ document.addEventListener("DOMContentLoaded", () => {
   const addSolidBtn = $("#addSolidBtn");
   const opacityLabel = $("#opacityLabel");
 
+  const displaySelect = $("#displaySelect");
+
   // shape radios
   const shapeRadios = document.querySelectorAll('input[name="shape"]');
+
+  if (displaySelect) {
+    displaySelect.addEventListener("change", () => {
+      const targetId = displaySelect.value || "all";
+      dispatchEvent(new CustomEvent("app:displayTargetChanged", { detail: { targetId } }));
+      if (window.app && typeof window.app.setEditTarget === "function") {
+        window.app.setEditTarget(targetId);
+      }
+    });
+  }
 
   function ensureAppReady(cb) {
     if (window.app) {

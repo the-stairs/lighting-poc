@@ -253,6 +253,12 @@ button:disabled {
   pointer-events: none;
 }
 
+#displaySelect {
+  width: 100%;
+  min-width: 0;
+  margin-top: 4px;
+}
+
 #rect-size {
   display: none;
 }
