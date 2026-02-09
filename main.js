@@ -3,6 +3,16 @@
 let p5Canvas;
 let glShader;
 
+const urlParams = new URLSearchParams(window.location.search);
+const appConfig = {
+  role: urlParams.get("role") === "display" ? "display" : "control",
+  displayId: urlParams.get("displayId") || null,
+};
+window.appConfig = appConfig;
+document.body.classList.add(
+  appConfig.role === "display" ? "role-display" : "role-control"
+);
+
 const U_MAX_LIGHTS = 64;
 const INTENSITY_MAX = 2000; // HDR scale per spec
 const FEATHER_UI_MAX = 800;
@@ -74,6 +84,126 @@ const appState = {
   previewMode: false,
 };
 
+const displayState = {
+  backgroundColor: "#000000",
+  creationShape: "circle",
+  creationType: TYPE_LIGHT,
+  exposure: 1.2,
+  falloffC: 2.0,
+  colorSpace: 1,
+  lights: [],
+};
+
+function getRenderState() {
+  return appConfig.role === "display" ? displayState : appState;
+}
+
+const REALTIME_CHANNEL_NAME = "poc-light-sync";
+const REALTIME_EVENT = "message";
+const SYNC_DEBOUNCE_MS = 280;
+let realtimeChannel = null;
+let syncToDisplayTimeout = null;
+
+/** 컨트롤러에서 디스플레이별로 기억해 둔 상태 (targetId -> snapshot) */
+const displayStateMap = {};
+
+function getDisplayTargetId() {
+  const el = document.getElementById("displaySelect");
+  return el ? (el.value || "all") : "all";
+}
+
+function broadcastState() {
+  if (appConfig.role !== "control") return;
+  const client = window.supabaseClient;
+  if (!client) return;
+  const targetId = getDisplayTargetId();
+  const payload = serializePreset();
+  displayStateMap[targetId] = payload;
+  realtimeChannel
+    .send({
+      type: "broadcast",
+      event: REALTIME_EVENT,
+      payload: { type: "LIVE_STATE", targetId, payload },
+    })
+    .catch(function (err) {
+      console.warn("[realtime] broadcast failed", err);
+    });
+}
+
+function scheduleSyncToDisplay() {
+  if (appConfig.role !== "control") return;
+  if (syncToDisplayTimeout) clearTimeout(syncToDisplayTimeout);
+  syncToDisplayTimeout = setTimeout(function () {
+    syncToDisplayTimeout = null;
+    broadcastState();
+  }, SYNC_DEBOUNCE_MS);
+}
+
+function getDefaultPreset() {
+  return {
+    version: 1,
+    backgroundColor: "#000000",
+    creationShape: "circle",
+    exposure: 1.2,
+    falloffC: 2.0,
+    colorSpace: 1,
+    lights: [],
+  };
+}
+
+function setEditTarget(targetId) {
+  if (appConfig.role !== "control") return;
+  var id = (targetId && String(targetId).trim()) || "all";
+  var preset = displayStateMap[id] || getDefaultPreset();
+  applyPresetToState(appState, preset);
+  emitSelectionChange();
+  dispatchLightsChanged();
+}
+
+function initRealtime() {
+  const client = window.supabaseClient;
+  if (!client) return;
+
+  realtimeChannel = client.channel(REALTIME_CHANNEL_NAME);
+
+  realtimeChannel.on(
+    "broadcast",
+    { event: REALTIME_EVENT },
+    function (event) {
+      const body = event && event.payload;
+      if (!body || typeof body.type !== "string") return;
+
+      if (appConfig.role === "control" && body.type === "REQUEST_LIVE") {
+        var targetId = body.targetId || "all";
+        var snap = serializePreset();
+        displayStateMap[targetId] = snap;
+        realtimeChannel.send({
+          type: "broadcast",
+          event: REALTIME_EVENT,
+          payload: { type: "LIVE_STATE", targetId: targetId, payload: snap },
+        }).catch(function (e) { console.warn("[realtime] send failed", e); });
+        return;
+      }
+
+      if (appConfig.role === "display" && body.type === "LIVE_STATE") {
+        var targetId = body.targetId;
+        if (targetId !== "all" && String(targetId) !== String(appConfig.displayId)) return;
+        applyPresetToState(displayState, body.payload || {});
+      }
+    }
+  );
+
+  realtimeChannel.subscribe(function (status) {
+    if (status === "SUBSCRIBED" && appConfig.role === "display") {
+      realtimeChannel.send({
+        type: "broadcast",
+        event: REALTIME_EVENT,
+        payload: { type: "REQUEST_LIVE", targetId: appConfig.displayId || "all" },
+      }).catch(function () {});
+    }
+  });
+}
+
 function preload() {
   // load vertex/fragment shaders
   glShader = loadShader("shader.vert", "shader.frag");
@@ -87,6 +217,8 @@ function setup() {
   p5Canvas.parent("canvas-container");
   pixelDensity(1);
   noStroke();
+
+  initRealtime();
 
   dispatchEvent(new Event("app:ready"));
 }
@@ -113,16 +245,17 @@ function draw() {
   rect(0, 0, width, height);
   resetShader();
 
-  updateHoverState();
-  if (appState.previewMode) return;
+  if (appConfig.role === "control") {
+    updateHoverState();
+    if (appState.previewMode) return;
 
-  // selection/hover overlay (in pixel-top-left space)
-  const selected = getSelectedLight();
-  const hovered =
-    appState.hoveredIdx >= 0 && appState.hoveredIdx < appState.lights.length
-      ? appState.lights[appState.hoveredIdx]
-      : null;
-  if (selected || hovered) {
+    // selection/hover overlay (in pixel-top-left space)
+    const selected = getSelectedLight();
+    const hovered =
+      appState.hoveredIdx >= 0 && appState.hoveredIdx < appState.lights.length
+        ? appState.lights[appState.hoveredIdx]
+        : null;
+    if (selected || hovered) {
     push();
     // map top-left (0,0) to WEBGL coordinates
     resetMatrix();
@@ -155,6 +288,7 @@ function draw() {
       drawBlockerDash(hovered);
     }
     pop();
+  }
   }
 }
 
@@ -193,6 +327,7 @@ function drawBlockerDash(light) {
 
 // ============ Input/Interaction ============
 function mousePressed() {
+  if (appConfig.role === "display") return;
   if (isPointerOverPanel()) return;
   if (!isMouseOnCanvas()) return;
 
@@ -206,6 +341,7 @@ function mousePressed() {
     appState.dragOffset.y = mouseY - light.y;
     emitSelectionChange();
     dispatchLightsChanged();
+    scheduleSyncToDisplay();
   } else {
     // create new light
     const light = createLightAt(
@@ -221,29 +357,35 @@ function mousePressed() {
     appState.dragOffset.y = 0;
     emitSelectionChange();
     dispatchLightsChanged();
+    scheduleSyncToDisplay();
   }
 }
 
 function mouseDragged() {
+  if (appConfig.role === "display") return;
   if (isPointerOverPanel()) return;
   if (!appState.dragging) return;
   const selected = getSelectedLight();
   if (!selected) return;
   selected.x = mouseX - appState.dragOffset.x;
   selected.y = mouseY - appState.dragOffset.y;
+  scheduleSyncToDisplay();
 }
 
 function mouseMoved() {
+  if (appConfig.role === "display") return;
   updateHoverState();
 }
 
 function mouseReleased() {
+  if (appConfig.role === "display") return;
   if (isPointerOverPanel()) return;
   appState.dragging = false;
 }
 
 // Delete by double click on a light
 function doubleClicked() {
+  if (appConfig.role === "display") return;
   if (isPointerOverPanel()) return;
   if (!isMouseOnCanvas()) return;
   const idx = hitTest(mouseX, mouseY);
@@ -255,6 +397,7 @@ function doubleClicked() {
     emitSelectionChange();
   }
   dispatchLightsChanged();
+  scheduleSyncToDisplay();
 }
 
 function isMouseOnCanvas() {
@@ -482,20 +625,21 @@ function ensureLightCaches(light) {
 
 // ======== Uniform upload ========
 function uploadUniforms() {
+  const state = getRenderState();
   // resolution
   glShader.setUniform("u_resolution", [width, height]);
 
   // background linear color
-  const bgLin = hexToLinearRgb(appState.backgroundColor);
+  const bgLin = hexToLinearRgb(state.backgroundColor);
   glShader.setUniform("u_bgColorLinear", [bgLin.r, bgLin.g, bgLin.b]);
 
   // globals
-  glShader.setUniform("u_exposure", appState.exposure);
-  glShader.setUniform("u_falloffC", appState.falloffC);
-  glShader.setUniform("u_colorSpace", appState.colorSpace);
+  glShader.setUniform("u_exposure", state.exposure);
+  glShader.setUniform("u_falloffC", state.falloffC);
+  glShader.setUniform("u_colorSpace", state.colorSpace);
 
   // compress active lights into uniform arrays
-  const lights = appState.lights;
+  const lights = state.lights;
   const count = Math.min(lights.length, U_MAX_LIGHTS);
   glShader.setUniform("u_numLights", count);
 
@@ -587,24 +731,29 @@ function uploadUniforms() {
 // ============ Public API for UI ============
 function setBackgroundColor(hex) {
   appState.backgroundColor = hex;
+  scheduleSyncToDisplay();
 }
 
 function setCreationShape(shape) {
   if (shape === "rect") appState.creationShape = "rect";
   else appState.creationShape = "circle";
+  scheduleSyncToDisplay();
 }
 
 function setCreationType(type) {
   const next = normalizeLayerType(type) || TYPE_LIGHT;
   appState.creationType = next;
+  scheduleSyncToDisplay();
 }
 
 function setExposure(v) {
   appState.exposure = Math.max(0.1, Math.min(5, v));
+  scheduleSyncToDisplay();
 }
 
 function setFalloffC(v) {
   appState.falloffC = clamp(v, 0.2, 6.0, 2.0);
+  scheduleSyncToDisplay();
 }
 
 function setPreviewMode(enabled) {
@@ -665,6 +814,7 @@ function updateSelectedLight(props) {
       l.blendMode = typeToBlendMode(inferredType);
     }
   }
+  scheduleSyncToDisplay();
 }
 
 function emitSelectionChange() {
@@ -685,6 +835,7 @@ function addLayerAtCenter(type) {
   appState.selectedLightId = light.id;
   emitSelectionChange();
   dispatchLightsChanged();
+  scheduleSyncToDisplay();
 }
 
 function deleteSelectedLight() {
@@ -698,6 +849,7 @@ function deleteSelectedLight() {
   appState.dragging = false;
   emitSelectionChange();
   dispatchLightsChanged();
+  scheduleSyncToDisplay();
 }
 
 function clearSelection() {
@@ -722,6 +874,7 @@ function bringToFrontById(id) {
   const [item] = appState.lights.splice(idx, 1);
   appState.lights.push(item);
   dispatchLightsChanged();
+  scheduleSyncToDisplay();
 }
 
 function sendToBackById(id) {
@@ -730,6 +883,7 @@ function sendToBackById(id) {
   const [item] = appState.lights.splice(idx, 1);
   appState.lights.unshift(item);
   dispatchLightsChanged();
+  scheduleSyncToDisplay();
 }
 
 function reorderLightsById(dragId, targetId, place = "before") {
@@ -743,6 +897,7 @@ function reorderLightsById(dragId, targetId, place = "before") {
     place === "after" ? adjustedTargetIdx + 1 : adjustedTargetIdx;
   appState.lights.splice(insertIdx, 0, item);
   dispatchLightsChanged();
+  scheduleSyncToDisplay();
   if (appState.selectedLightId) emitSelectionChange();
 }
 
@@ -875,18 +1030,18 @@ function serializePreset() {
   };
 }
 
-function applyPreset(preset) {
+function applyPresetToState(targetState, preset) {
   if (!preset || typeof preset !== "object") return false;
 
-  appState.backgroundColor =
+  targetState.backgroundColor =
     typeof preset.backgroundColor === "string"
       ? preset.backgroundColor
-      : appState.backgroundColor;
+      : targetState.backgroundColor;
 
-  appState.creationShape = preset.creationShape === "rect" ? "rect" : "circle";
-  appState.exposure = clamp(preset.exposure, 0.1, 5, appState.exposure);
-  appState.falloffC = clamp(preset.falloffC, 0.2, 6.0, appState.falloffC);
-  appState.colorSpace = preset.colorSpace === 0 ? 0 : 1;
+  targetState.creationShape = preset.creationShape === "rect" ? "rect" : "circle";
+  targetState.exposure = clamp(preset.exposure, 0.1, 5, targetState.exposure);
+  targetState.falloffC = clamp(preset.falloffC, 0.2, 6.0, targetState.falloffC);
+  targetState.colorSpace = preset.colorSpace === 0 ? 0 : 1;
 
   const src = Array.isArray(preset.lights) ? preset.lights : [];
   const sanitized = [];
@@ -894,19 +1049,26 @@ function applyPreset(preset) {
     const l = sanitizeLight(src[i]);
     if (l) sanitized.push(l);
   }
-  appState.lights = sanitized;
+  targetState.lights = sanitized;
 
-  const selectedId =
-    typeof preset.selectedLightId === "string" ? preset.selectedLightId : null;
-  appState.selectedLightId =
-    selectedId && appState.lights.some((l) => l.id === selectedId)
-      ? selectedId
-      : null;
-
-  appState.dragging = false;
-  emitSelectionChange();
-  dispatchLightsChanged();
+  if (targetState === appState) {
+    const selectedId =
+      typeof preset.selectedLightId === "string" ? preset.selectedLightId : null;
+    appState.selectedLightId =
+      selectedId && appState.lights.some((l) => l.id === selectedId)
+        ? selectedId
+        : null;
+    appState.dragging = false;
+    emitSelectionChange();
+    dispatchLightsChanged();
+  }
   return true;
+}
+
+function applyPreset(preset) {
+  const ok = applyPresetToState(appState, preset);
+  if (ok) scheduleSyncToDisplay();
+  return ok;
 }
 
 // expose API
@@ -927,6 +1089,7 @@ window.app = {
   bringToFrontById,
   sendToBackById,
   reorderLightsById,
+  setEditTarget,
   exportPreset: () => serializePreset(),
   importPreset: (presetObj) => applyPreset(presetObj),
 };

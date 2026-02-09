@@ -7,6 +7,22 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
+    <div id="nav-page" class="nav-page" hidden>
+      <div class="nav-inner">
+        <h1 class="nav-title">Lighting POC</h1>
+        <p class="nav-desc">컨트롤 또는 디스플레이를 선택하세요.</p>
+        <nav class="nav-links">
+          <a href="?role=control" class="nav-link nav-link-control">컨트롤</a>
+          <a href="?role=display&displayId=1" class="nav-link">Display 1</a>
+          <a href="?role=display&displayId=2" class="nav-link">Display 2</a>
+          <a href="?role=display&displayId=3" class="nav-link">Display 3</a>
+          <a href="?role=display&displayId=4" class="nav-link">Display 4</a>
+          <a href="?role=display&displayId=5" class="nav-link">Display 5</a>
+          <a href="?role=display&displayId=6" class="nav-link">Display 6</a>
+        </nav>
+      </div>
+    </div>
+    <div id="app-page" class="app-page" hidden>
     <aside class="panel" id="control-panel">
       <h1>Lighting POC</h1>
 
@@ -450,9 +466,26 @@
       class="canvas-container"
       aria-label="canvas"
     ></main>
+    </div>
 
+    <script>
+      (function () {
+        var params = new URLSearchParams(window.location.search);
+        var role = params.get("role");
+        var nav = document.getElementById("nav-page");
+        var app = document.getElementById("app-page");
+        if (role === "control" || role === "display") {
+          if (nav) nav.hidden = true;
+          if (app) app.hidden = false;
+        } else {
+          if (nav) nav.hidden = false;
+          if (app) app.hidden = true;
+        }
+      })();
+    </script>
     <script src="config.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <script src="supabase.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/p5@1.9.2/lib/p5.min.js"></script>
     <script src="main.js"></script>
     <script src="ui.js"></script>
