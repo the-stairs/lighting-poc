@@ -7,434 +7,510 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <aside class="panel" id="control-panel">
-      <h1>Lighting POC</h1>
+    <div id="nav-page" class="nav-page" hidden>
+      <div class="nav-inner">
+        <h1 class="nav-title">Lighting POC</h1>
+        <p class="nav-desc">컨트롤 또는 디스플레이를 선택하세요.</p>
+        <nav class="nav-links">
+          <a href="?role=control" class="nav-link nav-link-control">컨트롤</a>
+          <a href="?role=display&displayId=1" class="nav-link">Top</a>
+          <a href="?role=display&displayId=2" class="nav-link">Bottom</a>
+          <a href="?role=display&displayId=3" class="nav-link">Left</a>
+          <a href="?role=display&displayId=4" class="nav-link">Right</a>
+          <a href="?role=display&displayId=5" class="nav-link">Front</a>
+          <a href="?role=display&displayId=6" class="nav-link">Back</a>
+        </nav>
+      </div>
+    </div>
+    <div id="app-page" class="app-page" hidden>
+      <aside class="panel" id="control-panel">
+        <h1>Lighting POC</h1>
 
-      <section class="group">
-        <h2>패널</h2>
-        <div class="row">
-          <button id="togglePanelBtn" type="button">패널 숨기기 (P)</button>
-          <button id="toggleDockBtn" type="button">오른쪽으로 이동 (D)</button>
-          <span id="panelDockState" class="muted small">현재: 왼쪽</span>
-        </div>
-      </section>
-
-      <section class="group">
-        <h2>프리셋</h2>
-        <div class="row">
-          <button id="exportPresetBtn" type="button">Export JSON</button>
-          <button id="importPresetBtn" type="button">Import JSON</button>
-          <input
-            id="importPresetFile"
-            type="file"
-            accept="application/json"
-            style="display: none"
-          />
-        </div>
-        <div class="row">
-          <label class="grow">
-            <span>Export 파일명 (빈칸이면 자동)</span>
-            <input
-              id="presetFileName"
-              type="text"
-              placeholder="예: studio_A_softbox_v2"
-              autocomplete="off"
-            />
-          </label>
-        </div>
-        <p class="hint">현재 설정을 저장/불러오기 합니다.</p>
-      </section>
-
-      <section class="group">
-        <h2>배경 색상</h2>
-        <div class="row">
-          <button id="bg-black" type="button">검정</button>
-          <button id="bg-gray" type="button">회색</button>
-          <label class="grow right">
-            <span>팔레트</span>
-            <input id="bgColor" type="color" value="#000000" />
-          </label>
-        </div>
-      </section>
-
-      <details class="group">
-        <summary>생성 모양</summary>
-        <div class="row">
-          <label
-            ><input type="radio" name="shape" value="circle" checked />
-            원형</label
-          >
-          <label><input type="radio" name="shape" value="rect" /> 사각형</label>
-        </div>
-        <p class="hint">캔버스를 클릭하면 현재 모양으로 조명이 생성됩니다.</p>
-      </details>
-
-      <details class="group">
-        <summary>전역 노출(톤매핑)</summary>
-        <label class="row">
-          <button
-            type="button"
-            class="step-btn"
-            id="exposureMinus"
-            title="-0.01"
-          >
-            −
-          </button>
-          <input
-            id="exposureSlider"
-            type="range"
-            min="0.1"
-            max="5"
-            step="0.01"
-            value="1.2"
-          />
-          <button
-            type="button"
-            class="step-btn"
-            id="exposurePlus"
-            title="+0.01"
-          >
-            +
-          </button>
-          <output id="exposureValue">1.20</output>
-        </label>
-      </details>
-
-      <details class="group">
-        <summary>전역 튜닝</summary>
-        <label class="row">
-          <span class="grow">Falloff Strength</span>
-          <button
-            type="button"
-            class="step-btn"
-            id="falloffCMinus"
-            title="-0.1"
-          >
-            −
-          </button>
-          <input
-            id="falloffCSlider"
-            type="range"
-            min="0.2"
-            max="6.0"
-            step="0.1"
-            value="2.0"
-          />
-          <button type="button" class="step-btn" id="falloffCPlus" title="+0.1">
-            +
-          </button>
-          <output id="falloffCValue">2.0</output>
-        </label>
-      </details>
-
-      <details class="group" open>
-        <summary>선택된 조명 속성</summary>
-        <div id="no-selection" class="muted">
-          조명을 선택하면 속성이 표시됩니다.
-        </div>
-
-        <div id="light-controls" class="stack" aria-disabled="true">
+        <details class="group" id="display-section">
+          <summary>디스플레이</summary>
           <div class="row">
             <label class="grow">
-              <span>Type</span>
-              <select id="selectedType" disabled>
-                <option value="LIGHT">Light</option>
-                <option value="FILTER">Filter</option>
-                <option value="SOLID">Solid</option>
+              <span>적용 대상</span>
+              <select id="displaySelect">
+                <option value="1">Top</option>
+                <option value="2">Bottom</option>
+                <option value="3">Left</option>
+                <option value="4">Right</option>
+                <option value="5">Front</option>
+                <option value="6">Back</option>
               </select>
             </label>
           </div>
-          <div id="circle-size" class="row">
-            <button type="button" class="step-btn" id="sizeMinus" title="-1">
-              −
+        </details>
+
+        <details class="group">
+          <summary>패널</summary>
+          <div class="row">
+            <button id="togglePanelBtn" type="button">패널 숨기기 (P)</button>
+            <button id="toggleDockBtn" type="button">
+              오른쪽으로 이동 (D)
             </button>
+            <span id="panelDockState" class="muted small">현재: 왼쪽</span>
+          </div>
+        </details>
+
+        <details class="group">
+          <summary>프리셋</summary>
+          <div class="row">
+            <span class="grow">불러오기/내보내기 적용 범위</span>
+          </div>
+          <div class="row">
+            <label
+              ><input type="radio" name="presetScope" value="current" checked />
+              현재 디스플레이만</label
+            >
+            <label
+              ><input type="radio" name="presetScope" value="all" /> 모든
+              디스플레이</label
+            >
+          </div>
+          <div class="row">
+            <button id="exportPresetBtn" type="button">Export JSON</button>
+            <button id="importPresetBtn" type="button">Import JSON</button>
+            <input
+              id="importPresetFile"
+              type="file"
+              accept="application/json"
+              style="display: none"
+            />
+          </div>
+          <div class="row">
             <label class="grow">
-              <span>크기 (Size)</span>
+              <span>Export 파일명 (빈칸이면 자동)</span>
               <input
-                id="sizeSlider"
-                type="range"
-                min="10"
-                max="1200"
-                step="1"
-                value="300"
-                disabled
+                id="presetFileName"
+                type="text"
+                placeholder="예: studio_A_softbox_v2"
+                autocomplete="off"
               />
             </label>
-            <button type="button" class="step-btn" id="sizePlus" title="+1">
+          </div>
+          <p class="hint">현재 설정을 저장/불러오기 합니다.</p>
+        </details>
+
+        <details class="group">
+          <summary>배경 색상</summary>
+          <div class="row">
+            <button id="bg-black" type="button">검정</button>
+            <button id="bg-gray" type="button">회색</button>
+            <label class="grow right">
+              <span>팔레트</span>
+              <input id="bgColor" type="color" value="#000000" />
+            </label>
+          </div>
+        </details>
+
+        <details class="group">
+          <summary>생성 모양</summary>
+          <div class="row">
+            <label
+              ><input type="radio" name="shape" value="circle" checked />
+              원형</label
+            >
+            <label
+              ><input type="radio" name="shape" value="rect" /> 사각형</label
+            >
+          </div>
+          <p class="hint">캔버스를 클릭하면 현재 모양으로 조명이 생성됩니다.</p>
+        </details>
+
+        <details class="group">
+          <summary>전역 노출(톤매핑)</summary>
+          <label class="row">
+            <button
+              type="button"
+              class="step-btn"
+              id="exposureMinus"
+              title="-0.01"
+            >
+              −
+            </button>
+            <input
+              id="exposureSlider"
+              type="range"
+              min="0.1"
+              max="5"
+              step="0.01"
+              value="1.2"
+            />
+            <button
+              type="button"
+              class="step-btn"
+              id="exposurePlus"
+              title="+0.01"
+            >
               +
             </button>
-            <output id="sizeValue">300</output>
+            <output id="exposureValue">1.20</output>
+          </label>
+        </details>
+
+        <details class="group">
+          <summary>전역 튜닝</summary>
+          <label class="row">
+            <span class="grow">Falloff Strength</span>
+            <button
+              type="button"
+              class="step-btn"
+              id="falloffCMinus"
+              title="-0.1"
+            >
+              −
+            </button>
+            <input
+              id="falloffCSlider"
+              type="range"
+              min="0.2"
+              max="6.0"
+              step="0.1"
+              value="2.0"
+            />
+            <button
+              type="button"
+              class="step-btn"
+              id="falloffCPlus"
+              title="+0.1"
+            >
+              +
+            </button>
+            <output id="falloffCValue">2.0</output>
+          </label>
+        </details>
+
+        <details class="group" open>
+          <summary>선택된 조명 속성</summary>
+          <div id="no-selection" class="muted">
+            조명을 선택하면 속성이 표시됩니다.
           </div>
 
-          <div id="rect-size" class="col">
+          <div id="light-controls" class="stack" aria-disabled="true">
             <div class="row">
-              <button type="button" class="step-btn" id="widthMinus" title="-1">
+              <label class="grow">
+                <span>Type</span>
+                <select id="selectedType" disabled>
+                  <option value="LIGHT">Light</option>
+                  <option value="FILTER">Filter</option>
+                  <option value="SOLID">Solid</option>
+                </select>
+              </label>
+            </div>
+            <div id="circle-size" class="row">
+              <button type="button" class="step-btn" id="sizeMinus" title="-1">
                 −
               </button>
               <label class="grow">
-                <span>가로</span>
+                <span>크기 (Size)</span>
                 <input
-                  id="widthSlider"
+                  id="sizeSlider"
                   type="range"
                   min="10"
-                  max="1600"
+                  max="1200"
                   step="1"
-                  value="220"
+                  value="300"
                   disabled
                 />
               </label>
-              <button type="button" class="step-btn" id="widthPlus" title="+1">
+              <button type="button" class="step-btn" id="sizePlus" title="+1">
                 +
               </button>
-              <output id="widthValue">220</output>
+              <output id="sizeValue">300</output>
             </div>
+
+            <div id="rect-size" class="col">
+              <div class="row">
+                <button
+                  type="button"
+                  class="step-btn"
+                  id="widthMinus"
+                  title="-1"
+                >
+                  −
+                </button>
+                <label class="grow">
+                  <span>가로</span>
+                  <input
+                    id="widthSlider"
+                    type="range"
+                    min="10"
+                    max="1600"
+                    step="1"
+                    value="220"
+                    disabled
+                  />
+                </label>
+                <button
+                  type="button"
+                  class="step-btn"
+                  id="widthPlus"
+                  title="+1"
+                >
+                  +
+                </button>
+                <output id="widthValue">220</output>
+              </div>
+              <div class="row">
+                <button
+                  type="button"
+                  class="step-btn"
+                  id="heightMinus"
+                  title="-1"
+                >
+                  −
+                </button>
+                <label class="grow">
+                  <span>세로</span>
+                  <input
+                    id="heightSlider"
+                    type="range"
+                    min="10"
+                    max="1200"
+                    step="1"
+                    value="160"
+                    disabled
+                  />
+                </label>
+                <button
+                  type="button"
+                  class="step-btn"
+                  id="heightPlus"
+                  title="+1"
+                >
+                  +
+                </button>
+                <output id="heightValue">160</output>
+              </div>
+            </div>
+
+            <div id="ellipse-controls" class="col" style="display: none">
+              <div class="row">
+                <label class="grow">
+                  <span>Size X (ratio)</span>
+                  <input
+                    id="sizeXSlider"
+                    type="range"
+                    min="0.1"
+                    max="3"
+                    step="0.01"
+                    value="1"
+                    disabled
+                  />
+                </label>
+                <output id="sizeXValue">1.00</output>
+              </div>
+              <div class="row">
+                <label class="grow">
+                  <span>Size Y (ratio)</span>
+                  <input
+                    id="sizeYSlider"
+                    type="range"
+                    min="0.1"
+                    max="3"
+                    step="0.01"
+                    value="1"
+                    disabled
+                  />
+                </label>
+                <output id="sizeYValue">1.00</output>
+              </div>
+              <div class="row" style="gap: 8px">
+                <button id="makeCircleByXBtn" type="button" disabled>
+                  X=Y (use X)
+                </button>
+                <button id="makeCircleByYBtn" type="button" disabled>
+                  X=Y (use Y)
+                </button>
+              </div>
+            </div>
+
             <div class="row">
               <button
                 type="button"
                 class="step-btn"
-                id="heightMinus"
+                id="brightnessMinus"
                 title="-1"
               >
                 −
               </button>
               <label class="grow">
-                <span>세로</span>
+                <span id="brightnessLabel">밝기 (HDR Intensity)</span>
                 <input
-                  id="heightSlider"
+                  id="brightnessSlider"
                   type="range"
-                  min="10"
-                  max="1200"
+                  min="0"
+                  max="2000"
                   step="1"
-                  value="160"
+                  value="300"
                   disabled
                 />
               </label>
-              <button type="button" class="step-btn" id="heightPlus" title="+1">
+              <button
+                type="button"
+                class="step-btn"
+                id="brightnessPlus"
+                title="+1"
+              >
                 +
               </button>
-              <output id="heightValue">160</output>
+              <output id="brightnessValue">300</output>
             </div>
-          </div>
 
-          <div id="ellipse-controls" class="col" style="display: none">
             <div class="row">
+              <button
+                type="button"
+                class="step-btn"
+                id="opacityMinus"
+                title="-0.01"
+              >
+                −
+              </button>
               <label class="grow">
-                <span>Size X (ratio)</span>
+                <span id="opacityLabel">Opacity</span>
                 <input
-                  id="sizeXSlider"
+                  id="opacitySlider"
                   type="range"
-                  min="0.1"
-                  max="3"
+                  min="0"
+                  max="1"
                   step="0.01"
                   value="1"
                   disabled
                 />
               </label>
-              <output id="sizeXValue">1.00</output>
+              <button
+                type="button"
+                class="step-btn"
+                id="opacityPlus"
+                title="+0.01"
+              >
+                +
+              </button>
+              <output id="opacityValue">1.00</output>
             </div>
+            <div id="opacityDebug" class="muted small">
+              selected light opacity = 1.00
+            </div>
+
             <div class="row">
+              <button
+                type="button"
+                class="step-btn"
+                id="softnessMinus"
+                title="-5"
+              >
+                −
+              </button>
               <label class="grow">
-                <span>Size Y (ratio)</span>
+                <span>페더 (Feather)</span>
                 <input
-                  id="sizeYSlider"
+                  id="softnessSlider"
                   type="range"
-                  min="0.1"
-                  max="3"
-                  step="0.01"
-                  value="1"
+                  min="0"
+                  max="800"
+                  step="5"
+                  value="150"
                   disabled
                 />
               </label>
-              <output id="sizeYValue">1.00</output>
-            </div>
-            <div class="row" style="gap: 8px">
-              <button id="makeCircleByXBtn" type="button" disabled>
-                X=Y (use X)
+              <button
+                type="button"
+                class="step-btn"
+                id="softnessPlus"
+                title="+5"
+              >
+                +
               </button>
-              <button id="makeCircleByYBtn" type="button" disabled>
-                X=Y (use Y)
+              <output id="softnessValue">150</output>
+            </div>
+
+            <div class="row">
+              <button
+                type="button"
+                class="step-btn"
+                id="falloffMinus"
+                title="-0.1"
+              >
+                −
+              </button>
+              <label class="grow">
+                <span>Falloff (1/r² 계수)</span>
+                <input
+                  id="falloffSlider"
+                  type="range"
+                  min="0.1"
+                  max="8"
+                  step="0.1"
+                  value="1.5"
+                  disabled
+                />
+              </label>
+              <button
+                type="button"
+                class="step-btn"
+                id="falloffPlus"
+                title="+0.1"
+              >
+                +
+              </button>
+              <output id="falloffValue">1.5</output>
+            </div>
+            <div id="falloffHint" class="muted small" style="display: none">
+              Feather가 0이면 Falloff 효과가 거의 없습니다.
+            </div>
+
+            <div class="row">
+              <label class="grow right">
+                <span>색상</span>
+                <input id="lightColor" type="color" value="#ffffff" disabled />
+              </label>
+            </div>
+            <p id="blockerColorHint" class="hint" style="display: none">
+              Filter에서 흰색은 투과 100%에 가까워 효과가 거의 없을 수 있어요.
+              흰 판이 필요하면 Solid를 사용하세요.
+            </p>
+
+            <div class="row">
+              <button id="fitCanvasBtn" type="button" disabled>
+                화면 꽉 채우기
+              </button>
+            </div>
+            <div class="row">
+              <button id="deleteLightBtn" type="button" disabled>
+                선택 조명 삭제
               </button>
             </div>
           </div>
+        </details>
 
+        <details class="group" open>
+          <summary>레이어 목록</summary>
           <div class="row">
-            <button
-              type="button"
-              class="step-btn"
-              id="brightnessMinus"
-              title="-1"
-            >
-              −
-            </button>
-            <label class="grow">
-              <span id="brightnessLabel">밝기 (HDR Intensity)</span>
-              <input
-                id="brightnessSlider"
-                type="range"
-                min="0"
-                max="2000"
-                step="1"
-                value="300"
-                disabled
-              />
-            </label>
-            <button
-              type="button"
-              class="step-btn"
-              id="brightnessPlus"
-              title="+1"
-            >
-              +
-            </button>
-            <output id="brightnessValue">300</output>
-          </div>
-
-          <div class="row">
-            <button
-              type="button"
-              class="step-btn"
-              id="opacityMinus"
-              title="-0.01"
-            >
-              −
-            </button>
-            <label class="grow">
-              <span id="opacityLabel">Opacity</span>
-              <input
-                id="opacitySlider"
-                type="range"
-                min="0"
-                max="1"
-                step="0.01"
-                value="1"
-                disabled
-              />
-            </label>
-            <button
-              type="button"
-              class="step-btn"
-              id="opacityPlus"
-              title="+0.01"
-            >
-              +
-            </button>
-            <output id="opacityValue">1.00</output>
-          </div>
-          <div id="opacityDebug" class="muted small">
-            selected light opacity = 1.00
-          </div>
-
-          <div class="row">
-            <button
-              type="button"
-              class="step-btn"
-              id="softnessMinus"
-              title="-5"
-            >
-              −
-            </button>
-            <label class="grow">
-              <span>페더 (Feather)</span>
-              <input
-                id="softnessSlider"
-                type="range"
-                min="0"
-                max="800"
-                step="5"
-                value="150"
-                disabled
-              />
-            </label>
-            <button type="button" class="step-btn" id="softnessPlus" title="+5">
-              +
-            </button>
-            <output id="softnessValue">150</output>
-          </div>
-
-          <div class="row">
-            <button
-              type="button"
-              class="step-btn"
-              id="falloffMinus"
-              title="-0.1"
-            >
-              −
-            </button>
-            <label class="grow">
-              <span>Falloff (1/r² 계수)</span>
-              <input
-                id="falloffSlider"
-                type="range"
-                min="0.1"
-                max="8"
-                step="0.1"
-                value="1.5"
-                disabled
-              />
-            </label>
-            <button
-              type="button"
-              class="step-btn"
-              id="falloffPlus"
-              title="+0.1"
-            >
-              +
-            </button>
-            <output id="falloffValue">1.5</output>
-          </div>
-          <div id="falloffHint" class="muted small" style="display: none">
-            Feather가 0이면 Falloff 효과가 거의 없습니다.
-          </div>
-
-          <div class="row">
-            <label class="grow right">
-              <span>색상</span>
-              <input id="lightColor" type="color" value="#ffffff" disabled />
-            </label>
-          </div>
-          <p id="blockerColorHint" class="hint" style="display: none">
-            Filter에서 흰색은 투과 100%에 가까워 효과가 거의 없을 수 있어요.
-            흰 판이 필요하면 Solid를 사용하세요.
-          </p>
-
-          <div class="row">
-            <button id="fitCanvasBtn" type="button" disabled>
-              화면 꽉 채우기
-            </button>
+            <button id="addLightBtn" type="button">+ Light</button>
+            <button id="addFilterBtn" type="button">+ Filter</button>
+            <button id="addSolidBtn" type="button">+ Solid</button>
           </div>
           <div class="row">
-            <button id="deleteLightBtn" type="button" disabled>
-              선택 조명 삭제
-            </button>
+            <button id="btnBringToFront" type="button">Bring to Front</button>
+            <button id="btnSendToBack" type="button">Send to Back</button>
           </div>
-        </div>
-      </details>
+          <div id="layerList" class="stack"></div>
+        </details>
 
-      <details class="group" open>
-        <summary>레이어 목록</summary>
-        <div class="row">
-          <button id="addLightBtn" type="button">+ Light</button>
-          <button id="addFilterBtn" type="button">+ Filter</button>
-          <button id="addSolidBtn" type="button">+ Solid</button>
-        </div>
-        <div class="row">
-          <button id="btnBringToFront" type="button">Bring to Front</button>
-          <button id="btnSendToBack" type="button">Send to Back</button>
-        </div>
-        <div id="layerList" class="stack"></div>
-      </details>
+        <footer class="muted small">클릭: 생성/선택 · 드래그: 이동</footer>
+      </aside>
 
-      <footer class="muted small">클릭: 생성/선택 · 드래그: 이동</footer>
-    </aside>
+      <main
+        id="canvas-container"
+        class="canvas-container"
+        aria-label="canvas"
+      ></main>
+    </div>
 
-    <main
-      id="canvas-container"
-      class="canvas-container"
-      aria-label="canvas"
-    ></main>
-
-    <script src="https://cdn.jsdelivr.net/npm/p5@1.9.2/lib/p5.min.js"></script>
-    <script src="main.js"></script>
-    <script src="ui.js"></script>
+    <script type="module" src="/nav.js"></script>
+    <script type="module" src="/main.js"></script>
+    <script type="module" src="/ui.js"></script>
   </body>
 </html>

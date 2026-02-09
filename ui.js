@@ -81,8 +81,20 @@ document.addEventListener("DOMContentLoaded", () => {
   const addSolidBtn = $("#addSolidBtn");
   const opacityLabel = $("#opacityLabel");
 
+  const displaySelect = $("#displaySelect");
+
   // shape radios
   const shapeRadios = document.querySelectorAll('input[name="shape"]');
+
+  if (displaySelect) {
+    displaySelect.addEventListener("change", () => {
+      const targetId = displaySelect.value || "all";
+      dispatchEvent(new CustomEvent("app:displayTargetChanged", { detail: { targetId } }));
+      if (window.app && typeof window.app.setEditTarget === "function") {
+        window.app.setEditTarget(targetId);
+      }
+    });
+  }
 
   function ensureAppReady(cb) {
     if (window.app) {
@@ -320,8 +332,11 @@ document.addEventListener("DOMContentLoaded", () => {
           alert("앱이 아직 준비되지 않았습니다. 잠시 후 다시 시도해주세요.");
           return;
         }
-
-        const preset = window.app.exportPreset();
+        const scopeEl = document.querySelector('input[name="presetScope"]:checked');
+        const applyToAllDisplays = scopeEl && scopeEl.value === "all";
+        const preset = window.app.exportPreset({
+          applyToAllDisplays: applyToAllDisplays,
+        });
         const json = JSON.stringify(preset, null, 2);
         const blob = new Blob([json], { type: "application/json" });
         const url = URL.createObjectURL(blob);
@@ -367,7 +382,11 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
           const text = await file.text();
           const obj = JSON.parse(text);
-          const ok = window.app.importPreset(obj);
+          const scopeEl = document.querySelector('input[name="presetScope"]:checked');
+          const applyToAllDisplays = scopeEl && scopeEl.value === "all";
+          const ok = window.app.importPreset(obj, {
+            applyToAllDisplays: applyToAllDisplays,
+          });
           if (!ok) alert("프리셋 형식이 올바르지 않습니다.");
           syncFalloffCFromState();
         } catch (err) {

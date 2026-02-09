@@ -1,0 +1,30 @@
+# ========== 환경/비밀 ==========
+.env
+.env.local
+.env.*.local
+config.js
+
+# ========== 의존성 / 빌드 ==========
+node_modules/
+dist/
+*.local
+
+# ========== IDE / 에디터 ==========
+.cursor/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ========== OS ==========
+.DS_Store
+Thumbs.db
+
+# ========== 로그 / 캐시 ==========
+*.log
+npm-debug.log*
+.npm/
+.cache/
+
+# ========== 기타 ==========
+package-lock.json

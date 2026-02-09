@@ -23,6 +23,76 @@ body {
     Apple Color Emoji, Segoe UI Emoji;
 }
 
+/* 루트 네비게이션 페이지 */
+.nav-page {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+.nav-page[hidden] {
+  display: none;
+}
+.nav-inner {
+  text-align: center;
+  padding: 2rem;
+}
+.nav-title {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.75rem;
+  font-weight: 600;
+}
+.nav-desc {
+  margin: 0 0 2rem 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+.nav-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: center;
+  max-width: 360px;
+}
+.nav-link {
+  display: inline-block;
+  padding: 0.75rem 1.25rem;
+  background: var(--surface);
+  border: 1px solid #333;
+  border-radius: 8px;
+  color: var(--text);
+  text-decoration: none;
+  font-size: 0.95rem;
+  transition: background 0.15s, border-color 0.15s;
+}
+.nav-link:hover {
+  background: #252525;
+  border-color: var(--accent);
+  color: var(--text);
+}
+.nav-link-control {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 500;
+}
+.nav-link-control:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+.app-page[hidden] {
+  display: none;
+}
+.app-page {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+
 .panel {
   position: fixed;
   top: 0;
@@ -87,6 +157,8 @@ details.group > summary + * {
   display: flex;
   align-items: center;
   gap: 8px;
+  margin-top: 10px;
+  margin-bottom: 10px;
 }
 .col {
   display: flex;
@@ -253,6 +325,12 @@ button:disabled {
   pointer-events: none;
 }
 
+#displaySelect {
+  width: 100%;
+  min-width: 0;
+  margin-top: 4px;
+}
+
 #rect-size {
   display: none;
 }
@@ -260,6 +338,11 @@ button:disabled {
 /* p5 canvas fills container */
 canvas {
   display: block;
+}
+
+/* Display role: hide panel, full-screen canvas only */
+body.role-display .panel {
+  display: none;
 }
 
 /* Panel toggle */
