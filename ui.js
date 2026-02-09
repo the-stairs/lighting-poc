@@ -5,7 +5,19 @@ function $(sel) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  const role = window.appConfig?.role ?? "control";
+  if (role === "display") {
+    const panelEl = document.getElementById("control-panel");
+    if (panelEl) panelEl.style.display = "none";
+    document.body.classList.add("panel-hidden");
+    return;
+  }
+
   const togglePanelBtn = $("#togglePanelBtn");
+  const editTargetSelect = $("#editTargetSelect");
+  const applyLiveBtn = $("#applyLiveBtn");
+  const revertDraftBtn = $("#revertDraftBtn");
+  const clearOverrideBtn = $("#clearOverrideBtn");
   const bgBlack = $("#bg-black");
   const bgGray = $("#bg-gray");
   const bgColor = $("#bgColor");
@@ -47,7 +59,78 @@ document.addEventListener("DOMContentLoaded", () => {
     window.addEventListener("app:ready", () => cb(), { once: true });
   }
 
+  function updateClearOverrideEnabled() {
+    if (!clearOverrideBtn) return;
+    const target =
+      window.app && typeof window.app.getEditTarget === "function"
+        ? window.app.getEditTarget()
+        : "all";
+    clearOverrideBtn.disabled = !target || String(target) === "all";
+  }
+
+  function syncPanelFromDraft() {
+    if (!window.app || typeof window.app.getState !== "function") return;
+    const state = window.app.getState();
+    if (!state) return;
+
+    if (typeof state.backgroundColor === "string") {
+      bgColor.value = state.backgroundColor;
+    }
+    if (typeof state.creationShape === "string") {
+      shapeRadios.forEach((r) => {
+        r.checked = r.value === state.creationShape;
+      });
+    }
+    if (editTargetSelect && window.app.getEditTarget) {
+      const target = window.app.getEditTarget();
+      if (target) editTargetSelect.value = String(target);
+    }
+    updateClearOverrideEnabled();
+    if (typeof state.blendingStrength === "number") {
+      const percent = Math.round(state.blendingStrength * 100);
+      blendingSlider.value = String(percent);
+      blendingValue.textContent = `${percent}%`;
+    }
+    if (typeof state.exposure === "number") {
+      exposureSlider.value = String(state.exposure);
+      exposureValue.textContent = state.exposure.toFixed(2);
+    }
+  }
+
   ensureAppReady(() => {
+    if (applyLiveBtn) {
+      applyLiveBtn.addEventListener("click", () => {
+        if (window.app && typeof window.app.applyLive === "function") {
+          window.app.applyLive();
+          syncPanelFromDraft();
+        }
+      });
+    }
+    if (editTargetSelect) {
+      editTargetSelect.addEventListener("change", (e) => {
+        if (window.app && typeof window.app.setEditTarget === "function") {
+          window.app.setEditTarget(e.target.value);
+        }
+        syncPanelFromDraft();
+      });
+    }
+    if (clearOverrideBtn) {
+      clearOverrideBtn.addEventListener("click", () => {
+        if (window.app && typeof window.app.clearOverride === "function") {
+          window.app.clearOverride();
+          syncPanelFromDraft();
+        }
+      });
+    }
+    if (revertDraftBtn) {
+      revertDraftBtn.addEventListener("click", () => {
+        if (window.app && typeof window.app.revertDraft === "function") {
+          window.app.revertDraft();
+          syncPanelFromDraft();
+        }
+      });
+    }
+
     // Background controls
     bgBlack.addEventListener("click", () => {
       bgColor.value = "#000000";
@@ -193,6 +276,11 @@ document.addEventListener("DOMContentLoaded", () => {
     exposureSlider.dispatchEvent(new Event("input", { bubbles: true }));
     setControlsEnabled(false);
     updateVisibilityByType(null);
+    syncPanelFromDraft();
+  });
+
+  window.addEventListener("app:statechanged", () => {
+    syncPanelFromDraft();
   });
 
   // Panel toggle button and hotkey
@@ -220,6 +308,10 @@ document.addEventListener("DOMContentLoaded", () => {
       ) {
         window.app.clearSelection();
       }
+      window.dispatchEvent(new Event("resize"));
+      requestAnimationFrame(() => {
+        window.dispatchEvent(new Event("resize"));
+      });
     });
   }
   document.addEventListener("keydown", (e) => {
@@ -236,6 +328,10 @@ document.addEventListener("DOMContentLoaded", () => {
     ) {
       window.app.clearSelection();
     }
+    window.dispatchEvent(new Event("resize"));
+    requestAnimationFrame(() => {
+      window.dispatchEvent(new Event("resize"));
+    });
   });
 
   // ===== 패널 위 입력을 p5로 보내지 않기: 버블 단계에서 전파 차단 =====

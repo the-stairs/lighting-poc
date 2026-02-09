@@ -11,8 +11,21 @@
       <h1>Lighting POC</h1>
 
       <section class="group">
+        <label class="row">
+          <span>편집 대상</span>
+          <select id="editTargetSelect">
+            <option value="all">All Displays (Base)</option>
+            <option value="1">Display 1</option>
+            <option value="2">Display 2</option>
+            <option value="3">Display 3</option>
+            <option value="4">Display 4</option>
+          </select>
+        </label>
         <div class="row">
           <button id="togglePanelBtn" type="button">패널 숨기기 (P)</button>
+          <button id="applyLiveBtn" type="button">Apply (Shift+A)</button>
+          <button id="revertDraftBtn" type="button">Revert (Shift+R)</button>
+          <button id="clearOverrideBtn" type="button">Clear Override</button>
         </div>
       </section>
 
@@ -193,11 +206,14 @@
       <footer class="muted small">클릭: 생성/선택 · 드래그: 이동</footer>
     </aside>
 
-    <main
+    <main id="stage" class="stage" aria-label="stage">
+      <div id="preview-frame" class="preview-frame" aria-label="preview"></div>
+    </main>
+    <div
       id="canvas-container"
       class="canvas-container"
       aria-label="canvas"
-    ></main>
+    ></div>
 
     <script src="https://cdn.jsdelivr.net/npm/p5@1.9.2/lib/p5.min.js"></script>
     <script src="main.js"></script>

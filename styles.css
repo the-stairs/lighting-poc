@@ -16,17 +16,32 @@ body {
 }
 body {
   margin: 0;
-  display: flex;
   background: #000;
   color: var(--text);
   font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, Arial,
     Apple Color Emoji, Segoe UI Emoji;
 }
 
+body.role-control {
+  display: grid;
+  grid-template-columns: var(--panel-width) 1fr;
+  height: 100vh;
+  overflow: hidden;
+}
+
+body.role-display {
+  height: 100vh;
+  overflow: hidden;
+}
+
+body.role-display {
+  user-select: none;
+  cursor: none;
+}
+
 .panel {
-  position: fixed;
+  position: sticky;
   top: 0;
-  left: 0;
   height: 100vh;
   width: var(--panel-width);
   z-index: 1000;
@@ -112,12 +127,37 @@ button:hover {
   font-size: 12px;
 }
 
+.stage {
+  height: 100vh;
+  background: #000;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.preview-frame {
+  aspect-ratio: 16 / 9;
+  width: min(100%, calc(100vh * 16 / 9));
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
 .canvas-container {
-  flex: 1;
-  position: relative;
+  position: fixed;
+  inset: 0;
   width: 100vw;
   height: 100vh;
   overflow: hidden;
+}
+
+body.role-control .canvas-container {
+  display: none;
+}
+
+body.role-display .stage {
+  display: none;
 }
 
 #light-controls[aria-disabled="true"] input,
