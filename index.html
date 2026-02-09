@@ -26,8 +26,8 @@
       <aside class="panel" id="control-panel">
         <h1>Lighting POC</h1>
 
-        <section class="group" id="display-section">
-          <h2>디스플레이</h2>
+        <details class="group" id="display-section">
+          <summary>디스플레이</summary>
           <div class="row">
             <label class="grow">
               <span>적용 대상</span>
@@ -41,10 +41,10 @@
               </select>
             </label>
           </div>
-        </section>
+        </details>
 
-        <section class="group">
-          <h2>패널</h2>
+        <details class="group">
+          <summary>패널</summary>
           <div class="row">
             <button id="togglePanelBtn" type="button">패널 숨기기 (P)</button>
             <button id="toggleDockBtn" type="button">
@@ -52,10 +52,10 @@
             </button>
             <span id="panelDockState" class="muted small">현재: 왼쪽</span>
           </div>
-        </section>
+        </details>
 
-        <section class="group">
-          <h2>프리셋</h2>
+        <details class="group">
+          <summary>프리셋</summary>
           <div class="row">
             <span class="grow">불러오기/내보내기 적용 범위</span>
           </div>
@@ -91,10 +91,10 @@
             </label>
           </div>
           <p class="hint">현재 설정을 저장/불러오기 합니다.</p>
-        </section>
+        </details>
 
-        <section class="group">
-          <h2>배경 색상</h2>
+        <details class="group">
+          <summary>배경 색상</summary>
           <div class="row">
             <button id="bg-black" type="button">검정</button>
             <button id="bg-gray" type="button">회색</button>
@@ -103,7 +103,7 @@
               <input id="bgColor" type="color" value="#000000" />
             </label>
           </div>
-        </section>
+        </details>
 
         <details class="group">
           <summary>생성 모양</summary>
