@@ -253,7 +253,9 @@ function initP5Sketch() {
       const h = window.innerHeight;
       p.resizeCanvas(w, h);
       dispatchEvent(
-        new CustomEvent("app:canvasResized", { detail: { width: w, height: h } })
+        new CustomEvent("app:canvasResized", {
+          detail: { width: w, height: h },
+        })
       );
     };
 
@@ -271,7 +273,8 @@ function initP5Sketch() {
 
         const selected = getSelectedLight();
         const hovered =
-          appState.hoveredIdx >= 0 && appState.hoveredIdx < appState.lights.length
+          appState.hoveredIdx >= 0 &&
+          appState.hoveredIdx < appState.lights.length
             ? appState.lights[appState.hoveredIdx]
             : null;
         if (selected || hovered) {
@@ -428,7 +431,8 @@ function isMouseOnCanvas() {
 }
 
 function isPointerOverPanel() {
-  if (!p5Sketch || document.body.classList.contains("panel-hidden")) return false;
+  if (!p5Sketch || document.body.classList.contains("panel-hidden"))
+    return false;
   const panel = document.getElementById("control-panel");
   if (!panel) return false;
   const canvasEl = p5Canvas && p5Canvas.elt;
@@ -494,7 +498,9 @@ function updateHoverState() {
     appState.hoveredIdx = -1;
     return;
   }
-  appState.hoveredIdx = p5Sketch ? hitTest(p5Sketch.mouseX, p5Sketch.mouseY) : -1;
+  appState.hoveredIdx = p5Sketch
+    ? hitTest(p5Sketch.mouseX, p5Sketch.mouseY)
+    : -1;
 }
 
 // ============ Lights ============
@@ -794,21 +800,31 @@ function updateSelectedLight(props) {
   if (l.shape === "circle") {
     if (typeof props.radius === "number") l.radius = Math.max(1, props.radius);
     if (typeof props.sizeX === "number")
-      l.sizeX = p5Sketch ? p5Sketch.constrain(props.sizeX, 0.1, 5) : props.sizeX;
+      l.sizeX = p5Sketch
+        ? p5Sketch.constrain(props.sizeX, 0.1, 5)
+        : props.sizeX;
     if (typeof props.sizeY === "number")
-      l.sizeY = p5Sketch ? p5Sketch.constrain(props.sizeY, 0.1, 5) : props.sizeY;
+      l.sizeY = p5Sketch
+        ? p5Sketch.constrain(props.sizeY, 0.1, 5)
+        : props.sizeY;
   } else {
     if (typeof props.width === "number") l.width = Math.max(1, props.width);
     if (typeof props.height === "number") l.height = Math.max(1, props.height);
   }
   if (typeof props.intensity === "number")
-    l.intensity = p5Sketch ? p5Sketch.constrain(props.intensity, 0, INTENSITY_MAX) : props.intensity;
+    l.intensity = p5Sketch
+      ? p5Sketch.constrain(props.intensity, 0, INTENSITY_MAX)
+      : props.intensity;
   if (typeof props.feather === "number") l.feather = Math.max(0, props.feather);
   if (typeof props.falloffK === "number")
-    l.falloffK = p5Sketch ? p5Sketch.constrain(props.falloffK, 0.1, 8) : props.falloffK;
+    l.falloffK = p5Sketch
+      ? p5Sketch.constrain(props.falloffK, 0.1, 8)
+      : props.falloffK;
   if (typeof props.rotation === "number") l.rotation = props.rotation;
   if (typeof props.opacity === "number") {
-    l.opacity = p5Sketch ? p5Sketch.constrain(props.opacity, 0, 1) : props.opacity;
+    l.opacity = p5Sketch
+      ? p5Sketch.constrain(props.opacity, 0, 1)
+      : props.opacity;
     if (DEBUG_LOGS) {
       console.log("[opacity] selected=", l.id, "opacity=", l.opacity);
     }
@@ -979,11 +995,20 @@ function sanitizeLight(raw) {
     10,
     Math.sqrt(canvasW * canvasW + canvasH * canvasH)
   );
+  // 위치: 정규화 좌표(nx, ny)가 있으면 우선 사용, 없으면 픽셀 좌표(x, y)를 사용
+  let rawX = raw.x;
+  let rawY = raw.y;
+  if (Number.isFinite(raw.nx) && Number.isFinite(raw.ny)) {
+    const nx = clamp(raw.nx, 0, 1, 0.5);
+    const ny = clamp(raw.ny, 0, 1, 0.5);
+    rawX = nx * canvasW;
+    rawY = ny * canvasH;
+  }
   const base = {
     id,
     shape,
-    x: clamp(raw.x, 0, canvasW, canvasW / 2),
-    y: clamp(raw.y, 0, canvasH, canvasH / 2),
+    x: clamp(rawX, 0, canvasW, canvasW / 2),
+    y: clamp(rawY, 0, canvasH, canvasH / 2),
     color: safeHex(raw.color, "#ffffff"),
     intensity: clamp(raw.intensity, 0, INTENSITY_MAX, 400),
     feather: clamp(raw.feather, 0, FEATHER_UI_MAX, 150),
@@ -995,12 +1020,31 @@ function sanitizeLight(raw) {
   };
 
   if (shape === "rect") {
-    base.width = clamp(raw.width, 10, maxRectW, 220);
-    base.height = clamp(raw.height, 10, maxRectH, 160);
+    // 크기: 정규화 폭/높이(nWidth, nHeight)가 있으면 우선 사용
+    let rawWidth = raw.width;
+    let rawHeight = raw.height;
+    if (Number.isFinite(raw.nWidth)) {
+      const nw = clamp(raw.nWidth, 0, 4, 0.2);
+      rawWidth = nw * canvasW;
+    }
+    if (Number.isFinite(raw.nHeight)) {
+      const nh = clamp(raw.nHeight, 0, 4, 0.2);
+      rawHeight = nh * canvasH;
+    }
+    base.width = clamp(rawWidth, 10, maxRectW, 220);
+    base.height = clamp(rawHeight, 10, maxRectH, 160);
   } else {
     const fallbackRadius = clamp(raw.radius, 10, maxRadius, 150);
     const legacyRadius = clamp(raw.baseSize, 10, maxRadius, fallbackRadius);
-    base.radius = isLegacyEllipse ? legacyRadius : fallbackRadius;
+    let radiusPx = isLegacyEllipse ? legacyRadius : fallbackRadius;
+    // 정규화 반지름(nRadius)이 있으면 우선 사용 (min(canvasW, canvasH) 기준)
+    if (Number.isFinite(raw.nRadius)) {
+      const nR = clamp(raw.nRadius, 0, 2, 0.1);
+      const baseDim = Math.min(canvasW, canvasH);
+      const candidate = nR * baseDim;
+      radiusPx = clamp(candidate, 10, maxRadius, radiusPx);
+    }
+    base.radius = radiusPx;
     base.sizeX = clamp(raw.sizeX, 0.1, 5, 1);
     base.sizeY = clamp(raw.sizeY, 0.1, 5, 1);
   }
@@ -1014,8 +1058,11 @@ function sanitizeLight(raw) {
 
 function serializePreset() {
   const s = appState;
+  const canvasW = Math.max(1, (p5Sketch && p5Sketch.width) || 1);
+  const canvasH = Math.max(1, (p5Sketch && p5Sketch.height) || 1);
+  const baseDim = Math.min(canvasW, canvasH);
   return {
-    version: 1,
+    version: 2,
     backgroundColor: s.backgroundColor,
     creationShape: s.creationShape,
     exposure: s.exposure,
@@ -1041,6 +1088,25 @@ function serializePreset() {
         rotation: l.rotation,
         blendMode: normalizedBlend,
       };
+      // 정규화 좌표/크기 추가 (해상도 독립적 동기화를 위해)
+      if (canvasW > 0 && canvasH > 0) {
+        const nx = (l.x ?? canvasW / 2) / canvasW;
+        const ny = (l.y ?? canvasH / 2) / canvasH;
+        out.nx = clamp(nx, 0, 1, 0.5);
+        out.ny = clamp(ny, 0, 1, 0.5);
+        if (normalizedShape === "rect") {
+          if (Number.isFinite(l.width)) {
+            out.nWidth = l.width / canvasW;
+          }
+          if (Number.isFinite(l.height)) {
+            out.nHeight = l.height / canvasH;
+          }
+        } else {
+          if (Number.isFinite(l.radius) && baseDim > 0) {
+            out.nRadius = l.radius / baseDim;
+          }
+        }
+      }
       if (normalizedShape === "rect") {
         out.width = l.width;
         out.height = l.height;
