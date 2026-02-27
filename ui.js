@@ -712,6 +712,35 @@ document.addEventListener("DOMContentLoaded", () => {
         label.appendChild(shapeBadge);
         label.appendChild(idText);
 
+        const vis = document.createElement("button");
+        vis.type = "button";
+        vis.className = "layer-visibility";
+        const isHidden =
+          typeof light.opacity === "number" && light.opacity <= 0.01;
+        vis.textContent = "👁";
+        if (isHidden) {
+          vis.classList.add("is-hidden");
+          vis.title = "보이기";
+        } else {
+          vis.title = "숨기기";
+        }
+
+        vis.addEventListener("pointerdown", (e) => e.stopPropagation());
+        vis.addEventListener("mousedown", (e) => e.stopPropagation());
+        vis.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (!window.app) return;
+          if (
+            typeof window.app.selectLightById === "function" &&
+            light.id
+          ) {
+            window.app.selectLightById(light.id);
+          }
+          if (typeof window.app.updateSelectedLight === "function") {
+            window.app.updateSelectedLight({ toggleVisibility: true });
+          }
+        });
+
         const del = document.createElement("button");
         del.type = "button";
         del.className = "layer-delete";
@@ -785,6 +814,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
         row.appendChild(label);
+        row.appendChild(vis);
         row.appendChild(del);
         layerList.appendChild(row);
       }

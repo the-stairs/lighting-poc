@@ -868,6 +868,36 @@ function setPreviewMode(enabled) {
 function updateSelectedLight(props) {
   const l = getSelectedLight();
   if (!l) return;
+  if (props && props.toggleVisibility === true) {
+    const hasOpacity = typeof l.opacity === "number";
+    const wasHidden = hasOpacity && l.opacity <= 0.01;
+    if (wasHidden) {
+      const restore =
+        typeof l._prevOpacity === "number" ? l._prevOpacity : 1;
+      const next = p5Sketch
+        ? p5Sketch.constrain(restore, 0, 1)
+        : restore;
+      l.opacity = next;
+    } else {
+      l._prevOpacity =
+        typeof l.opacity === "number" ? l.opacity : 1;
+      l.opacity = 0;
+    }
+    if (DEBUG_LOGS) {
+      console.log(
+        "[visibility] toggle",
+        l.id,
+        "opacity=",
+        l.opacity,
+        "prev=",
+        l._prevOpacity
+      );
+    }
+    emitSelectionChange();
+    dispatchLightsChanged();
+    scheduleSyncToDisplay();
+    return;
+  }
   if (typeof props.x === "number") l.x = props.x;
   if (typeof props.y === "number") l.y = props.y;
   if (l.shape === "circle") {

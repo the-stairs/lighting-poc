@@ -224,6 +224,22 @@ details.group > summary + * {
   font-size: 12px;
   line-height: 1.2;
 }
+.layer-visibility {
+  padding: 2px 6px;
+  font-size: 12px;
+  line-height: 1.2;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+}
+.layer-visibility:hover {
+  color: var(--text);
+}
+.layer-visibility.is-hidden {
+  color: #666;
+  opacity: 0.6;
+}
 .grow {
   flex: 1;
 }
@@ -342,6 +358,15 @@ button:disabled {
   background: #111;
   color: #f5f5f5;
   cursor: pointer;
+}
+
+.shoot-controls #shootStartBtn {
+  background: #b91c1c;
+  border-color: #dc2626;
+}
+
+.shoot-controls #shootStartBtn:hover {
+  background: #dc2626;
 }
 
 .shoot-controls button:hover {
