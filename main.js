@@ -216,7 +216,10 @@ function initRealtime() {
 
     if (appConfig.role === "control" && body.type === "REQUEST_LIVE") {
       const targetId = body.targetId || "all";
-      const snap = serializePreset();
+      // 디스플레이별로 이미 저장된 스냅샷이 있으면 그것을 우선 사용하고,
+      // 없으면 기본 프리셋으로 응답한다. (현재 편집 중인 다른 디스플레이 상태로 덮어쓰지 않기 위함)
+      const existing = displayStateMap[targetId];
+      const snap = existing || getDefaultPreset();
       displayStateMap[targetId] = snap;
       realtimeChannel
         .send({
