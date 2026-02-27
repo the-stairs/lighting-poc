@@ -9,6 +9,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const toggleDockBtn = $("#toggleDockBtn");
   const panelDockState = $("#panelDockState");
   const bgBlack = $("#bg-black");
+  const bgWhite = $("#bg-white");
   const bgGray = $("#bg-gray");
   const bgColor = $("#bgColor");
 
@@ -325,17 +326,15 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // Preset: Export
+    // Preset: Export (always all displays)
     if (exportBtn) {
       exportBtn.addEventListener("click", () => {
         if (!window.app || typeof window.app.exportPreset !== "function") {
           alert("앱이 아직 준비되지 않았습니다. 잠시 후 다시 시도해주세요.");
           return;
         }
-        const scopeEl = document.querySelector('input[name="presetScope"]:checked');
-        const applyToAllDisplays = scopeEl && scopeEl.value === "all";
         const preset = window.app.exportPreset({
-          applyToAllDisplays: applyToAllDisplays,
+          applyToAllDisplays: true,
         });
         const json = JSON.stringify(preset, null, 2);
         const blob = new Blob([json], { type: "application/json" });
@@ -372,7 +371,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // Preset: Import (open file picker)
+    // Preset: Import (open file picker, always all displays)
     if (importBtn && importFile) {
       importBtn.addEventListener("click", () => importFile.click());
       importFile.addEventListener("change", async (e) => {
@@ -382,10 +381,8 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
           const text = await file.text();
           const obj = JSON.parse(text);
-          const scopeEl = document.querySelector('input[name="presetScope"]:checked');
-          const applyToAllDisplays = scopeEl && scopeEl.value === "all";
           const ok = window.app.importPreset(obj, {
-            applyToAllDisplays: applyToAllDisplays,
+            applyToAllDisplays: true,
           });
           if (!ok) alert("프리셋 형식이 올바르지 않습니다.");
           syncFalloffCFromState();
@@ -403,6 +400,12 @@ document.addEventListener("DOMContentLoaded", () => {
       bgBlack.addEventListener("click", () => {
         if (bgColor) bgColor.value = "#000000";
         window.app.setBackgroundColor("#000000");
+      });
+    }
+    if (bgWhite) {
+      bgWhite.addEventListener("click", () => {
+        if (bgColor) bgColor.value = "#ffffff";
+        window.app.setBackgroundColor("#ffffff");
       });
     }
     if (bgGray) {
