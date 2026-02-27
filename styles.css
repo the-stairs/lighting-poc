@@ -1,5 +1,5 @@
 :root {
-  --panel-width: 320px;
+  --panel-width: 400px;
   --bg: #111;
   --text: #e6e6e6;
   --muted: #9aa0a6;
@@ -19,7 +19,7 @@ body {
   display: flex;
   background: #000;
   color: var(--text);
-  font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, Arial,
+  font: 18px/1.6 system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, Arial,
     Apple Color Emoji, Segoe UI Emoji;
 }
 
@@ -48,7 +48,7 @@ body {
 .nav-desc {
   margin: 0 0 2rem 0;
   color: var(--muted);
-  font-size: 0.95rem;
+  font-size: 1.05rem;
 }
 .nav-links {
   display: flex;
@@ -65,7 +65,7 @@ body {
   border-radius: 8px;
   color: var(--text);
   text-decoration: none;
-  font-size: 0.95rem;
+  font-size: 1.05rem;
   transition: background 0.15s, border-color 0.15s;
 }
 .nav-link:hover {
@@ -102,20 +102,30 @@ body {
   z-index: 1000;
   padding: 16px 14px;
   background: var(--surface);
-  border-right: 1px solid #262626;
+  border-right: 2px solid #3a3a3a;
+  box-shadow: 4px 0 16px rgba(0, 0, 0, 0.7);
+  border-radius: 0 12px 12px 0; /* 캔버스 쪽(오른쪽)만 둥글게 */
   overflow-y: auto;
   transform: translateX(0);
   transition: transform 180ms ease;
   pointer-events: auto;
 }
 
+/* 패널 스크롤바 감추기 (내용은 스크롤 가능) */
+.panel {
+  scrollbar-width: none; /* Firefox */
+}
+.panel::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Edge(Chromium) */
+}
+
 .panel h1 {
   margin: 0 0 12px 0;
-  font-size: 18px;
+  font-size: 24px;
 }
 .panel h2 {
   margin: 16px 0 8px 0;
-  font-size: 14px;
+  font-size: 18px;
 }
 
 .group {
@@ -129,7 +139,7 @@ details.group > summary {
   background: #222;
   border: 1px solid #333;
   color: var(--text);
-  font-size: 14px;
+  font-size: 18px;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -195,7 +205,7 @@ details.group > summary + * {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: 14px;
 }
 .layer-badge {
   display: inline-flex;
@@ -205,7 +215,7 @@ details.group > summary + * {
   border-radius: 4px;
   background: #2a2a2a;
   border: 1px solid #3a3a3a;
-  font-size: 11px;
+  font-size: 15px;
   color: var(--text);
   padding: 0 8px;
   min-width: 18px;
@@ -215,7 +225,7 @@ details.group > summary + * {
   padding: 0;
 }
 .layer-badge-type {
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 0.3px;
   min-width: 54px;
 }
@@ -250,7 +260,7 @@ details.group > summary + * {
 label span {
   display: block;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 16px;
   margin-bottom: 4px;
 }
 input[type="range"] {
@@ -271,6 +281,7 @@ output {
   min-width: 48px;
   text-align: right;
   color: var(--muted);
+  font-size: 16px;
 }
 
 button {
@@ -296,7 +307,7 @@ button:disabled {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 18px;
 }
 /* inline number editor */
 .inline-number {
@@ -315,13 +326,13 @@ button:disabled {
 .hint {
   color: var(--muted);
   margin: 6px 0 0 0;
-  font-size: 12px;
+  font-size: 16px;
 }
 .muted {
   color: var(--muted);
 }
 .small {
-  font-size: 12px;
+  font-size: 16px;
 }
 .row .small {
   align-self: center;
@@ -345,16 +356,17 @@ button:disabled {
   padding: 8px 10px;
   background: rgba(0, 0, 0, 0.7);
   border-radius: 999px;
-  border: 1px solid #333;
-  font-size: 12px;
+  border: 2px solid #3a3a3a;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.7);
+  font-size: 16px;
   z-index: 50;
 }
 
 .shoot-controls button {
   border-radius: 999px;
   padding: 4px 10px;
-  font-size: 12px;
-  border: 1px solid #444;
+  font-size: 16px;
+  border: 1px solid #555;
   background: #111;
   color: #f5f5f5;
   cursor: pointer;
@@ -437,5 +449,7 @@ body.panel-right .panel {
   left: auto;
   right: 0;
   border-right: none;
-  border-left: 1px solid #262626;
+  border-left: 2px solid #3a3a3a;
+  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.7);
+  border-radius: 12px 0 0 12px; /* 캔버스 쪽(왼쪽)만 둥글게 */
 }
