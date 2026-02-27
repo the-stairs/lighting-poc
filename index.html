@@ -450,6 +450,33 @@
             </div>
 
             <div class="row">
+              <label class="grow">
+                <span>시작 시간 (초)</span>
+                <input
+                  id="timerStart"
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value="0"
+                  disabled
+                />
+              </label>
+            </div>
+            <div class="row">
+              <label class="grow">
+                <span>지속 시간 (초)</span>
+                <input
+                  id="timerDuration"
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value="1"
+                  disabled
+                />
+              </label>
+            </div>
+
+            <div class="row">
               <label class="grow right">
                 <span>색상</span>
                 <input id="lightColor" type="color" value="#ffffff" disabled />
@@ -495,6 +522,15 @@
         class="canvas-container"
         aria-label="canvas"
       ></main>
+
+      <div class="shoot-controls">
+        <button type="button" id="modeEditBtn">편집 모드(F3)</button>
+        <button type="button" id="modeShootBtn">촬영 모드(F4)</button>
+        <button type="button" id="shootStartBtn">촬영 시작(F5)</button>
+      </div>
+      <div id="shootModeHint" class="shoot-mode-hint muted small">
+        촬영 모드입니다. 상단의 &ldquo;촬영 시작(F5)&rdquo; 버튼이나 F5 키로 타이머를 시작하세요.
+      </div>
     </div>
 
     <script type="module" src="/nav.js"></script>

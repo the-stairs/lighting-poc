@@ -65,6 +65,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const falloffPlus = $("#falloffPlus");
   const falloffHint = $("#falloffHint");
   const blockerColorHint = $("#blockerColorHint");
+  const timerStartInput = $("#timerStart");
+  const timerDurationInput = $("#timerDuration");
   const falloffCMinus = $("#falloffCMinus");
   const falloffCPlus = $("#falloffCPlus");
   const lightColor = $("#lightColor");
@@ -83,6 +85,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const opacityLabel = $("#opacityLabel");
 
   const displaySelect = $("#displaySelect");
+  const modeEditBtn = $("#modeEditBtn");
+  const modeShootBtn = $("#modeShootBtn");
+  const shootStartBtn = $("#shootStartBtn");
+  const shootControls = document.querySelector(".shoot-controls");
+  const shootModeHint = document.getElementById("shootModeHint");
 
   // shape radios
   const shapeRadios = document.querySelectorAll('input[name="shape"]');
@@ -326,6 +333,33 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
+    function syncModeButtons(mode) {
+      if (modeEditBtn) {
+        modeEditBtn.classList.toggle("active", mode === "edit");
+      }
+      if (modeShootBtn) {
+        modeShootBtn.classList.toggle("active", mode === "shoot");
+      }
+    }
+
+    function applyModeToUi(mode) {
+      syncModeButtons(mode);
+      const body = document.body;
+      if (!body) return;
+      const isShoot = mode === "shoot";
+      if (isShoot) {
+        body.classList.add("panel-hidden");
+      } else {
+        body.classList.remove("panel-hidden");
+      }
+      if (shootStartBtn) {
+        shootStartBtn.disabled = !isShoot;
+      }
+      if (shootModeHint) {
+        shootModeHint.style.display = isShoot ? "block" : "none";
+      }
+    }
+
     // Preset: Export (always all displays)
     if (exportBtn) {
       exportBtn.addEventListener("click", () => {
@@ -488,8 +522,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function setControlsEnabled(enabled) {
+      const state = window.app && window.app.getState && window.app.getState();
+      const forceOff = state && state.mode === "shoot";
+      const finalEnabled = enabled && !forceOff;
       if (controls) {
-        controls.setAttribute("aria-disabled", enabled ? "false" : "true");
+        controls.setAttribute("aria-disabled", finalEnabled ? "false" : "true");
       }
       [
         selectedType,
@@ -518,22 +555,24 @@ document.addEventListener("DOMContentLoaded", () => {
         falloffMinus,
         falloffSlider,
         falloffPlus,
+        timerStartInput,
+        timerDurationInput,
         lightColor,
         deleteLightBtn,
         fitCanvasBtn,
         btnBringToFront,
         btnSendToBack,
       ].forEach((el) => {
-        if (el) el.disabled = !enabled;
+        if (el) el.disabled = !finalEnabled;
       });
-      if (noSel) noSel.style.display = enabled ? "none" : "block";
-      if (!enabled && opacityDebug) {
+      if (noSel) noSel.style.display = finalEnabled ? "none" : "block";
+      if (!finalEnabled && opacityDebug) {
         opacityDebug.textContent = "selected light opacity = --";
       }
-      if (!enabled && falloffHint) {
+      if (!finalEnabled && falloffHint) {
         falloffHint.style.display = "none";
       }
-      if (!enabled && blockerColorHint) {
+      if (!finalEnabled && blockerColorHint) {
         blockerColorHint.style.display = "none";
       }
     }
@@ -806,6 +845,14 @@ document.addEventListener("DOMContentLoaded", () => {
       falloffSlider.value = (light.falloffK || 1.5).toFixed(1);
       falloffValue.textContent = `${falloffSlider.value}`;
       updateFalloffHint(light, softnessSlider.value);
+      if (timerStartInput) {
+        const s = Number.isFinite(light.startSec) ? light.startSec : 0;
+        timerStartInput.value = String(s);
+      }
+      if (timerDurationInput) {
+        const d = Number.isFinite(light.durationSec) ? light.durationSec : 1;
+        timerDurationInput.value = String(d);
+      }
       const state = window.app.getState && window.app.getState();
       if (state) renderLayerList(state.lights, state.selectedLightId);
     });
@@ -919,6 +966,44 @@ document.addEventListener("DOMContentLoaded", () => {
     if (lightColor) {
       lightColor.addEventListener("input", (e) => {
         window.app.updateSelectedLight({ color: e.target.value });
+      });
+    }
+    if (timerStartInput) {
+      timerStartInput.addEventListener("input", (e) => {
+        const v = Number(e.target.value);
+        if (!Number.isFinite(v)) return;
+        window.app.updateSelectedLight({ startSec: v });
+      });
+    }
+    if (timerDurationInput) {
+      timerDurationInput.addEventListener("input", (e) => {
+        const v = Number(e.target.value);
+        if (!Number.isFinite(v)) return;
+        window.app.updateSelectedLight({ durationSec: v });
+      });
+    }
+
+    if (modeEditBtn) {
+      modeEditBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (!window.app || typeof window.app.setMode !== "function") return;
+        window.app.setMode("edit");
+        applyModeToUi("edit");
+      });
+    }
+    if (modeShootBtn) {
+      modeShootBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (!window.app || typeof window.app.setMode !== "function") return;
+        window.app.setMode("shoot");
+        applyModeToUi("shoot");
+      });
+    }
+    if (shootStartBtn) {
+      shootStartBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (!window.app || typeof window.app.triggerShoot !== "function") return;
+        window.app.triggerShoot();
       });
     }
 
@@ -1070,8 +1155,26 @@ document.addEventListener("DOMContentLoaded", () => {
     setControlsEnabled(false);
     updateVisibilityByType(null);
     const initialState = window.app.getState && window.app.getState();
-    if (initialState)
+    if (initialState) {
       renderLayerList(initialState.lights, initialState.selectedLightId);
+      if (initialState.mode) {
+        applyModeToUi(initialState.mode);
+      }
+    }
+
+    if (shootControls) {
+      ["pointerdown", "pointerup", "click", "mousedown", "mouseup"].forEach(
+        (type) => {
+          shootControls.addEventListener(
+            type,
+            (e) => {
+              e.stopPropagation();
+            },
+            false
+          );
+        }
+      );
+    }
 
     // Output → direct number input (safe ones, exclude softnessValue)
     enableOutputNumberEdit(exposureValue, exposureSlider, { decimals: 2 });
@@ -1140,18 +1243,42 @@ document.addEventListener("DOMContentLoaded", () => {
       togglePanelDock();
       return;
     }
-    if (key !== "p") return;
-    e.preventDefault();
-    const willHide = !document.body.classList.contains("panel-hidden");
-    document.body.classList.toggle("panel-hidden");
-    updateToggleButtonLabel();
-    syncPreviewMode(willHide);
-    if (
-      willHide &&
-      window.app &&
-      typeof window.app.clearSelection === "function"
-    ) {
-      window.app.clearSelection();
+    if (key === "p") {
+      e.preventDefault();
+      const willHide = !document.body.classList.contains("panel-hidden");
+      document.body.classList.toggle("panel-hidden");
+      updateToggleButtonLabel();
+      syncPreviewMode(willHide);
+      if (
+        willHide &&
+        window.app &&
+        typeof window.app.clearSelection === "function"
+      ) {
+        window.app.clearSelection();
+      }
+      return;
+    }
+    if (key === "f3") {
+      e.preventDefault();
+      if (window.app && typeof window.app.setMode === "function") {
+        window.app.setMode("edit");
+      }
+      applyModeToUi("edit");
+      return;
+    }
+    if (key === "f4") {
+      e.preventDefault();
+      if (window.app && typeof window.app.setMode === "function") {
+        window.app.setMode("shoot");
+      }
+       applyModeToUi("shoot");
+      return;
+    }
+    if (key === "f5") {
+      e.preventDefault();
+      if (window.app && typeof window.app.triggerShoot === "function") {
+        window.app.triggerShoot();
+      }
     }
   });
 

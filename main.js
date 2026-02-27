@@ -31,6 +31,11 @@ const BLEND_MULTIPLY = 2;
 const TYPE_LIGHT = "LIGHT";
 const TYPE_FILTER = "FILTER";
 const TYPE_SOLID = "SOLID";
+const MODE_EDIT = "edit";
+const MODE_SHOOT = "shoot";
+let currentMode = MODE_EDIT;
+let shootPlaying = false;
+let shootStartUnixMs = 0;
 
 function normalizeLayerType(value) {
   const s = String(value || "")
@@ -142,6 +147,33 @@ function broadcastState() {
   broadcastSnapshotToTarget(payload, targetId);
 }
 
+function broadcastModeChange() {
+  if (appConfig.role !== "control" || !realtimeChannel) return;
+  realtimeChannel
+    .send({
+      type: "broadcast",
+      event: REALTIME_EVENT,
+      payload: { type: "MODE_CHANGE", targetId: "all", mode: currentMode },
+    })
+    .catch(function () {});
+}
+
+function broadcastShootTrigger() {
+  if (appConfig.role !== "control" || !realtimeChannel) return;
+  realtimeChannel
+    .send({
+      type: "broadcast",
+      event: REALTIME_EVENT,
+      payload: {
+        type: "SHOOT_TRIGGER",
+        targetId: "all",
+        mode: currentMode,
+        startUnixMs: shootStartUnixMs,
+      },
+    })
+    .catch(function () {});
+}
+
 function scheduleSyncToDisplay() {
   if (appConfig.role !== "control") return;
   if (syncToDisplayTimeout) clearTimeout(syncToDisplayTimeout);
@@ -198,14 +230,34 @@ function initRealtime() {
       return;
     }
 
-    if (appConfig.role === "display" && body.type === "LIVE_STATE") {
+    if (appConfig.role === "display") {
       const targetId = body.targetId;
       if (
         targetId !== "all" &&
         String(targetId) !== String(appConfig.displayId)
       )
         return;
-      applyPresetToState(displayState, body.payload || {});
+      if (body.type === "LIVE_STATE") {
+        applyPresetToState(displayState, body.payload || {});
+        return;
+      }
+      if (body.type === "MODE_CHANGE") {
+        if (body.mode === MODE_EDIT || body.mode === MODE_SHOOT) {
+          currentMode = body.mode;
+          shootPlaying = false;
+        }
+        return;
+      }
+      if (body.type === "SHOOT_TRIGGER") {
+        if (body.mode === MODE_SHOOT) {
+          currentMode = MODE_SHOOT;
+        }
+        if (typeof body.startUnixMs === "number") {
+          shootStartUnixMs = body.startUnixMs;
+          shootPlaying = true;
+        }
+        return;
+      }
     }
   });
 
@@ -291,20 +343,23 @@ function initP5Sketch() {
               p.noFill();
             }
             p.stroke(0);
-            p.strokeWeight(3.5);
+            p.strokeWeight(4);
+            drawHighlightShape(selected);
+            p.stroke(34, 197, 94);
+            p.strokeWeight(2);
             drawHighlightShape(selected);
             p.stroke(255);
-            p.strokeWeight(1.5);
+            p.strokeWeight(1);
             drawHighlightShape(selected);
             drawBlockerDash(selected);
           }
 
           if (hovered && (!selected || hovered.id !== selected.id)) {
-            p.stroke(0, 100);
-            p.strokeWeight(2.5);
+            p.stroke(0, 120);
+            p.strokeWeight(3);
             drawHighlightShape(hovered);
-            p.stroke(255, 200);
-            p.strokeWeight(1.5);
+            p.stroke(59, 130, 246);
+            p.strokeWeight(1.6);
             drawHighlightShape(hovered);
             drawBlockerDash(hovered);
           }
@@ -516,6 +571,8 @@ function createLightAt(x, y, shape, layerType = TYPE_LIGHT) {
     colorRawLinear: hexToLinearRgb(baseColor),
     colorTintLinear: hexToTintLinearRgb(baseColor),
     _colorHexCache: baseColor,
+    startSec: 0.0,
+    durationSec: 1.0,
     type,
     blendMode: typeToBlendMode(type),
     intensity: 400, // 0..INTENSITY_MAX (HDR)
@@ -656,6 +713,23 @@ function ensureLightCaches(light) {
 function uploadUniforms() {
   if (!p5Sketch || !glShader) return;
   const state = getRenderState();
+  const nowMs = Date.now();
+  let lights = state.lights || [];
+  if (currentMode === MODE_SHOOT) {
+    if (!shootPlaying) {
+      lights = [];
+    } else {
+      const tSec = (nowMs - shootStartUnixMs) / 1000;
+      lights = lights.filter(function (l) {
+        const s = Number.isFinite(l.startSec) ? l.startSec : 0;
+        const d = Number.isFinite(l.durationSec) ? l.durationSec : 1;
+        if (d <= 0) return false;
+        if (tSec < s) return false;
+        if (tSec > s + d) return false;
+        return true;
+      });
+    }
+  }
   glShader.setUniform("u_resolution", [p5Sketch.width, p5Sketch.height]);
 
   // background linear color
@@ -668,7 +742,6 @@ function uploadUniforms() {
   glShader.setUniform("u_colorSpace", state.colorSpace);
 
   // compress active lights into uniform arrays
-  const lights = state.lights;
   const count = Math.min(lights.length, U_MAX_LIGHTS);
   glShader.setUniform("u_numLights", count);
 
@@ -820,6 +893,12 @@ function updateSelectedLight(props) {
     l.falloffK = p5Sketch
       ? p5Sketch.constrain(props.falloffK, 0.1, 8)
       : props.falloffK;
+  if (typeof props.startSec === "number") {
+    l.startSec = clamp(props.startSec, 0, 600, 0);
+  }
+  if (typeof props.durationSec === "number") {
+    l.durationSec = clamp(props.durationSec, 0, 600, 1);
+  }
   if (typeof props.rotation === "number") l.rotation = props.rotation;
   if (typeof props.opacity === "number") {
     l.opacity = p5Sketch
@@ -863,7 +942,7 @@ function emitSelectionChange() {
 }
 
 function getState() {
-  return { ...appState };
+  return { ...appState, mode: currentMode, shootPlaying: shootPlaying };
 }
 
 function addLayerAtCenter(type) {
@@ -1015,6 +1094,8 @@ function sanitizeLight(raw) {
     falloffK: clamp(raw.falloffK, 0.1, 8, 1.5),
     opacity: clamp(raw.opacity, 0, 1, 1),
     rotation: clamp(raw.rotation, -Math.PI, Math.PI, 0),
+    startSec: clamp(raw.startSec, 0, 600, 0),
+    durationSec: clamp(raw.durationSec, 0, 600, 1),
     type: layerType,
     blendMode: typeToBlendMode(layerType),
   };
@@ -1086,6 +1167,8 @@ function serializePreset() {
         falloffK: l.falloffK,
         opacity: l.opacity,
         rotation: l.rotation,
+        startSec: l.startSec,
+        durationSec: l.durationSec,
         blendMode: normalizedBlend,
       };
       // 정규화 좌표/크기 추가 (해상도 독립적 동기화를 위해)
@@ -1248,6 +1331,20 @@ function applyPreset(preset, options) {
   return true;
 }
 
+function setMode(next) {
+  if (next !== MODE_EDIT && next !== MODE_SHOOT) return;
+  currentMode = next;
+  shootPlaying = false;
+  broadcastModeChange();
+}
+
+function triggerShoot() {
+  if (currentMode !== MODE_SHOOT) return;
+  shootPlaying = true;
+  shootStartUnixMs = Date.now();
+  broadcastShootTrigger();
+}
+
 // p5 인스턴스 모드로 스케치 시작
 initP5Sketch();
 
@@ -1270,6 +1367,8 @@ window.app = {
   sendToBackById,
   reorderLightsById,
   setEditTarget,
+  setMode,
+  triggerShoot,
   exportPreset: (exportOptions) => exportPresetData(exportOptions),
   importPreset: (presetObj, importOptions) =>
     applyPreset(presetObj, importOptions),
