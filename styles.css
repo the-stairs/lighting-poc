@@ -257,6 +257,10 @@ details.group > summary + * {
   justify-content: flex-end;
 }
 
+.bg-palette {
+  margin-left: 12px;
+}
+
 label span {
   display: block;
   color: var(--muted);
@@ -277,7 +281,6 @@ input[type="text"] {
 }
 input[type="number"],
 select {
-  width: 100%;
   background: #111;
   color: var(--text);
   border: 1px solid #333;
@@ -300,8 +303,16 @@ button {
   color: var(--text);
   border: 1px solid #333;
   border-radius: 6px;
-  padding: 8px 10px;
+  padding: 10px 14px;
   cursor: pointer;
+  font-size: 16px;
+}
+.panel button {
+  background: #1f2937; /* 더 진한 남색 톤 */
+  border-color: #374151;
+}
+.panel button:hover {
+  background: #111827;
 }
 button:hover {
   background: #2f2f2f;

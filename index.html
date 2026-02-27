@@ -83,10 +83,16 @@
         <details class="group">
           <summary>배경 색상</summary>
           <div class="row">
-            <button id="bg-black" type="button">검정</button>
-            <button id="bg-white" type="button">흰색</button>
-            <button id="bg-gray" type="button">회색</button>
-            <label class="grow right">
+            <button id="bg-black" type="button">
+              <span aria-hidden="true">⬛</span> 검정
+            </button>
+            <button id="bg-white" type="button">
+              <span aria-hidden="true">⬜</span> 흰색
+            </button>
+            <button id="bg-gray" type="button">
+              <span aria-hidden="true">◼︎</span> 회색
+            </button>
+            <label class="grow right bg-palette">
               <span>팔레트</span>
               <input id="bgColor" type="color" value="#000000" />
             </label>
@@ -482,6 +488,40 @@
                 <input id="lightColor" type="color" value="#ffffff" disabled />
               </label>
             </div>
+            <div class="row">
+              <label class="grow">
+                <span>RGB</span>
+                <div class="row" style="gap: 6px">
+                  <input
+                    id="lightColorR"
+                    type="number"
+                    min="0"
+                    max="255"
+                    step="1"
+                    value="255"
+                    disabled
+                  />
+                  <input
+                    id="lightColorG"
+                    type="number"
+                    min="0"
+                    max="255"
+                    step="1"
+                    value="255"
+                    disabled
+                  />
+                  <input
+                    id="lightColorB"
+                    type="number"
+                    min="0"
+                    max="255"
+                    step="1"
+                    value="255"
+                    disabled
+                  />
+                </div>
+              </label>
+            </div>
             <p id="blockerColorHint" class="hint" style="display: none">
               Filter에서 흰색은 투과 100%에 가까워 효과가 거의 없을 수 있어요.
               흰 판이 필요하면 Solid를 사용하세요.
@@ -491,8 +531,6 @@
               <button id="fitCanvasBtn" type="button" disabled>
                 화면 꽉 채우기
               </button>
-            </div>
-            <div class="row">
               <button id="deleteLightBtn" type="button" disabled>
                 선택 조명 삭제
               </button>
@@ -535,7 +573,8 @@
         </button>
       </div>
       <div id="shootModeHint" class="shoot-mode-hint muted small">
-        촬영 모드입니다. 상단의 &ldquo;촬영 시작(F5)&rdquo; 버튼이나 F5 키로 타이머를 시작하세요.
+        촬영 모드입니다. 상단의 &ldquo;촬영 시작(F5)&rdquo; 버튼이나 F5 키로
+        타이머를 시작하세요.
       </div>
     </div>
 

@@ -70,6 +70,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const falloffCMinus = $("#falloffCMinus");
   const falloffCPlus = $("#falloffCPlus");
   const lightColor = $("#lightColor");
+  const lightColorR = $("#lightColorR");
+  const lightColorG = $("#lightColorG");
+  const lightColorB = $("#lightColorB");
   const deleteLightBtn = $("#deleteLightBtn");
   const fitCanvasBtn = $("#fitCanvasBtn");
   const exportBtn = $("#exportPresetBtn");
@@ -558,6 +561,9 @@ document.addEventListener("DOMContentLoaded", () => {
         timerStartInput,
         timerDurationInput,
         lightColor,
+        lightColorR,
+        lightColorG,
+        lightColorB,
         deleteLightBtn,
         fitCanvasBtn,
         btnBringToFront,
@@ -575,6 +581,25 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!finalEnabled && blockerColorHint) {
         blockerColorHint.style.display = "none";
       }
+    }
+
+    function hexToRgb(hex) {
+      const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || "").trim());
+      if (!m) return null;
+      const intVal = parseInt(m[1], 16);
+      return {
+        r: (intVal >> 16) & 255,
+        g: (intVal >> 8) & 255,
+        b: intVal & 255,
+      };
+    }
+
+    function rgbToHex(r, g, b) {
+      const toByte = (v) => {
+        const n = Math.max(0, Math.min(255, Number(v) || 0));
+        return n.toString(16).padStart(2, "0");
+      };
+      return `#${toByte(r)}${toByte(g)}${toByte(b)}`;
     }
 
     function formatFeatherLabel(uiValue, light) {
@@ -871,6 +896,12 @@ document.addEventListener("DOMContentLoaded", () => {
       softnessValue.textContent = featherLabel.text;
       softnessValue.title = featherLabel.title;
       lightColor.value = light.color;
+      const rgb = hexToRgb(light.color);
+      if (rgb) {
+        if (lightColorR) lightColorR.value = String(rgb.r);
+        if (lightColorG) lightColorG.value = String(rgb.g);
+        if (lightColorB) lightColorB.value = String(rgb.b);
+      }
       updateTypeUi(light.type);
       falloffSlider.value = (light.falloffK || 1.5).toFixed(1);
       falloffValue.textContent = `${falloffSlider.value}`;
@@ -995,9 +1026,30 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     if (lightColor) {
       lightColor.addEventListener("input", (e) => {
-        window.app.updateSelectedLight({ color: e.target.value });
+        const hex = e.target.value;
+        window.app.updateSelectedLight({ color: hex });
+        const rgb = hexToRgb(hex);
+        if (rgb) {
+          if (lightColorR) lightColorR.value = String(rgb.r);
+          if (lightColorG) lightColorG.value = String(rgb.g);
+          if (lightColorB) lightColorB.value = String(rgb.b);
+        }
       });
     }
+    const bindRgbInput = (el, channel) => {
+      if (!el) return;
+      el.addEventListener("input", () => {
+        const r = lightColorR ? Number(lightColorR.value) : 0;
+        const g = lightColorG ? Number(lightColorG.value) : 0;
+        const b = lightColorB ? Number(lightColorB.value) : 0;
+        const hex = rgbToHex(r, g, b);
+        if (lightColor) lightColor.value = hex;
+        window.app.updateSelectedLight({ color: hex });
+      });
+    };
+    bindRgbInput(lightColorR, "r");
+    bindRgbInput(lightColorG, "g");
+    bindRgbInput(lightColorB, "b");
     if (timerStartInput) {
       timerStartInput.addEventListener("input", (e) => {
         const v = Number(e.target.value);
