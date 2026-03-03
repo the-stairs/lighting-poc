@@ -27,7 +27,7 @@
         <h1>Lighting POC</h1>
 
         <details class="group" id="display-section">
-          <summary>디스플레이</summary>
+          <summary>🖥 디스플레이</summary>
           <div class="row">
             <label class="grow">
               <span>적용 대상</span>
@@ -44,7 +44,7 @@
         </details>
 
         <details class="group">
-          <summary>패널</summary>
+          <summary>📌 패널</summary>
           <div class="row">
             <button id="togglePanelBtn" type="button">패널 숨기기 (P)</button>
             <button id="toggleDockBtn" type="button">
@@ -55,7 +55,7 @@
         </details>
 
         <details class="group">
-          <summary>프리셋</summary>
+          <summary>💾 프리셋</summary>
           <div class="row">
             <button id="exportPresetBtn" type="button">Export JSON</button>
             <button id="importPresetBtn" type="button">Import JSON</button>
@@ -81,12 +81,18 @@
         </details>
 
         <details class="group">
-          <summary>배경 색상</summary>
+          <summary>🎨 배경 색상</summary>
           <div class="row">
-            <button id="bg-black" type="button">검정</button>
-            <button id="bg-white" type="button">흰색</button>
-            <button id="bg-gray" type="button">회색</button>
-            <label class="grow right">
+            <button id="bg-black" type="button">
+              <span aria-hidden="true">⬛</span> 검정
+            </button>
+            <button id="bg-white" type="button">
+              <span aria-hidden="true">⬜</span> 흰색
+            </button>
+            <button id="bg-gray" type="button">
+              <span aria-hidden="true">◼︎</span> 회색
+            </button>
+            <label class="grow right bg-palette">
               <span>팔레트</span>
               <input id="bgColor" type="color" value="#000000" />
             </label>
@@ -94,7 +100,7 @@
         </details>
 
         <details class="group">
-          <summary>생성 모양</summary>
+          <summary>✚ 생성 모양</summary>
           <div class="row">
             <label
               ><input type="radio" name="shape" value="circle" checked />
@@ -108,7 +114,7 @@
         </details>
 
         <details class="group">
-          <summary>전역 노출(톤매핑)</summary>
+          <summary>🌗 전역 노출(톤매핑)</summary>
           <label class="row">
             <button
               type="button"
@@ -139,7 +145,7 @@
         </details>
 
         <details class="group">
-          <summary>전역 튜닝</summary>
+          <summary>🛠 전역 튜닝</summary>
           <label class="row">
             <span class="grow">Falloff Strength</span>
             <button
@@ -171,7 +177,7 @@
         </details>
 
         <details class="group" open>
-          <summary>선택된 조명 속성</summary>
+          <summary>💡 선택된 조명 속성</summary>
           <div id="no-selection" class="muted">
             조명을 선택하면 속성이 표시됩니다.
           </div>
@@ -450,9 +456,70 @@
             </div>
 
             <div class="row">
+              <label class="grow">
+                <span>시작 시간 (초)</span>
+                <input
+                  id="timerStart"
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value="0"
+                  disabled
+                />
+              </label>
+            </div>
+            <div class="row">
+              <label class="grow">
+                <span>지속 시간 (초)</span>
+                <input
+                  id="timerDuration"
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value="1"
+                  disabled
+                />
+              </label>
+            </div>
+
+            <div class="row">
               <label class="grow right">
                 <span>색상</span>
                 <input id="lightColor" type="color" value="#ffffff" disabled />
+              </label>
+            </div>
+            <div class="row">
+              <label class="grow">
+                <span>RGB</span>
+                <div class="row" style="gap: 6px">
+                  <input
+                    id="lightColorR"
+                    type="number"
+                    min="0"
+                    max="255"
+                    step="1"
+                    value="255"
+                    disabled
+                  />
+                  <input
+                    id="lightColorG"
+                    type="number"
+                    min="0"
+                    max="255"
+                    step="1"
+                    value="255"
+                    disabled
+                  />
+                  <input
+                    id="lightColorB"
+                    type="number"
+                    min="0"
+                    max="255"
+                    step="1"
+                    value="255"
+                    disabled
+                  />
+                </div>
               </label>
             </div>
             <p id="blockerColorHint" class="hint" style="display: none">
@@ -464,8 +531,6 @@
               <button id="fitCanvasBtn" type="button" disabled>
                 화면 꽉 채우기
               </button>
-            </div>
-            <div class="row">
               <button id="deleteLightBtn" type="button" disabled>
                 선택 조명 삭제
               </button>
@@ -474,7 +539,7 @@
         </details>
 
         <details class="group" open>
-          <summary>레이어 목록</summary>
+          <summary>📚 레이어 목록</summary>
           <div class="row">
             <button id="addLightBtn" type="button">+ Light</button>
             <button id="addFilterBtn" type="button">+ Filter</button>
@@ -495,6 +560,22 @@
         class="canvas-container"
         aria-label="canvas"
       ></main>
+
+      <div class="shoot-controls">
+        <button type="button" id="modeEditBtn">
+          <span aria-hidden="true">✏️</span> 편집 모드(F3)
+        </button>
+        <button type="button" id="modeShootBtn">
+          <span aria-hidden="true">🎬</span> 촬영 모드(F4)
+        </button>
+        <button type="button" id="shootStartBtn">
+          <span aria-hidden="true">⏺</span> 촬영 시작(F5)
+        </button>
+      </div>
+      <div id="shootModeHint" class="shoot-mode-hint muted small">
+        촬영 모드입니다. 상단의 &ldquo;촬영 시작(F5)&rdquo; 버튼이나 F5 키로
+        타이머를 시작하세요.
+      </div>
     </div>
 
     <script type="module" src="/nav.js"></script>
