@@ -412,6 +412,7 @@ function initP5Sketch() {
       if (!selected) return;
       selected.x = p5Sketch.mouseX - appState.dragOffset.x;
       selected.y = p5Sketch.mouseY - appState.dragOffset.y;
+      dispatchLightsChanged();
       scheduleSyncToDisplay();
     };
 

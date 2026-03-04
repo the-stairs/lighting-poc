@@ -93,6 +93,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const shootStartBtn = $("#shootStartBtn");
   const shootControls = document.querySelector(".shoot-controls");
   const shootModeHint = document.getElementById("shootModeHint");
+  const canvasContainer = document.getElementById("canvas-container");
+  let selectionIndicator = null;
 
   // shape radios
   const shapeRadios = document.querySelectorAll('input[name="shape"]');
@@ -118,6 +120,14 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   ensureAppReady(() => {
+    if (canvasContainer && !selectionIndicator) {
+      const el = document.createElement("div");
+      el.className = "selection-indicator";
+      el.textContent = "✔";
+      el.setAttribute("aria-hidden", "true");
+      canvasContainer.appendChild(el);
+      selectionIndicator = el;
+    }
     function setSliderBounds(slider, { min, max, step }) {
       if (!slider) return;
       if (min != null) slider.min = String(min);
@@ -850,12 +860,41 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
+    function hideSelectionIndicator() {
+      if (!selectionIndicator) return;
+      selectionIndicator.style.display = "none";
+    }
+
+    function updateSelectionIndicator(light) {
+      if (!selectionIndicator || !canvasContainer) return;
+      if (!light) {
+        hideSelectionIndicator();
+        return;
+      }
+      if (document.body.classList.contains("role-display")) {
+        hideSelectionIndicator();
+        return;
+      }
+      const state =
+        window.app && typeof window.app.getState === "function"
+          ? window.app.getState()
+          : null;
+      if (!state || state.mode !== "edit" || state.shootPlaying) {
+        hideSelectionIndicator();
+        return;
+      }
+      selectionIndicator.style.display = "flex";
+      selectionIndicator.style.left = `${light.x}px`;
+      selectionIndicator.style.top = `${light.y}px`;
+    }
+
     // Reflect selection to panel
     window.addEventListener("app:selected", (e) => {
       const light = e.detail;
       const enabled = !!light;
       setControlsEnabled(enabled);
       updateVisibilityByType(light);
+      updateSelectionIndicator(light);
       if (!light) {
         const state = window.app.getState && window.app.getState();
         if (state) renderLayerList(state.lights, state.selectedLightId);
@@ -1233,11 +1272,27 @@ document.addEventListener("DOMContentLoaded", () => {
       const detail = (e && e.detail) || {};
       const mode = detail.mode === "shoot" ? "shoot" : "edit";
       applyModeToUi(mode);
+      if (
+        window.app &&
+        typeof window.app.getSelectedLight === "function" &&
+        selectionIndicator
+      ) {
+        const current = window.app.getSelectedLight();
+        updateSelectionIndicator(current);
+      }
     });
 
     window.addEventListener("app:lightsChanged", (e) => {
       const detail = (e && e.detail) || {};
       renderLayerList(detail.lights || [], detail.selectedLightId || null);
+      if (
+        window.app &&
+        typeof window.app.getSelectedLight === "function" &&
+        selectionIndicator
+      ) {
+        const current = window.app.getSelectedLight();
+        updateSelectionIndicator(current);
+      }
     });
 
     // initialize labels
