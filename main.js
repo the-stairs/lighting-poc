@@ -256,7 +256,7 @@ function initRealtime() {
           currentMode = MODE_SHOOT;
         }
         if (typeof body.startUnixMs === "number") {
-          shootStartUnixMs = body.startUnixMs;
+          shootStartUnixMs = Date.now();
           shootPlaying = true;
         }
         return;
