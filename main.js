@@ -1271,14 +1271,11 @@ function applyPresetToState(targetState, preset) {
 }
 
 function exportPresetData(exportOptions) {
-  if (exportOptions && exportOptions.applyToAllDisplays) {
-    const displays = {};
-    ["1", "2", "3", "4", "5", "6"].forEach((id) => {
-      displays[id] = displayStateMap[id] || getDefaultPreset();
-    });
-    return { version: 1, scope: "all", displays: displays };
-  }
-  return serializePreset();
+  const displays = {};
+  ["1", "2", "3", "4", "5", "6"].forEach((id) => {
+    displays[id] = displayStateMap[id] || getDefaultPreset();
+  });
+  return { version: 1, scope: "all", displays: displays };
 }
 
 function resetDisplayToDefault(id) {
@@ -1312,7 +1309,7 @@ function applyPreset(preset, options) {
     typeof preset.displays === "object";
   const applyToAll = options && options.applyToAllDisplays;
 
-  if (applyToAll && isAllFormat) {
+  if (isAllFormat) {
     resetAllDisplaysToDefault();
     ["1", "2", "3", "4", "5", "6"].forEach((id) => {
       const p = preset.displays[id];
@@ -1329,34 +1326,13 @@ function applyPreset(preset, options) {
     return true;
   }
 
-  if (!applyToAll && isAllFormat) {
-    resetCurrentDisplayToDefault();
-    const currentId = getDisplayTargetId();
-    const p = preset.displays[currentId];
-    if (p && typeof p === "object") {
-      applyPresetToState(appState, p);
-      displayStateMap[currentId] = p;
-      broadcastSnapshotToTarget(p, currentId);
-      return true;
-    }
-    return true;
-  }
-
-  if (applyToAll) {
-    resetAllDisplaysToDefault();
-  } else {
-    resetCurrentDisplayToDefault();
-  }
+  resetAllDisplaysToDefault();
   const ok = applyPresetToState(appState, preset);
   if (!ok) return false;
-  if (applyToAll) {
-    const snapshot = serializePreset();
-    ["1", "2", "3", "4", "5", "6"].forEach((id) => {
-      broadcastSnapshotToTarget(snapshot, id);
-    });
-  } else {
-    scheduleSyncToDisplay();
-  }
+  const snapshot = serializePreset();
+  ["1", "2", "3", "4", "5", "6"].forEach((id) => {
+    broadcastSnapshotToTarget(snapshot, id);
+  });
   return true;
 }
 
