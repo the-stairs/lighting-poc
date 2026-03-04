@@ -96,6 +96,37 @@ document.addEventListener("DOMContentLoaded", () => {
   const canvasContainer = document.getElementById("canvas-container");
   let selectionIndicator = null;
 
+  function syncModeButtons(mode) {
+    if (modeEditBtn) {
+      modeEditBtn.classList.toggle("active", mode === "edit");
+    }
+    if (modeShootBtn) {
+      modeShootBtn.classList.toggle("active", mode === "shoot");
+    }
+  }
+
+  function applyModeToUi(mode) {
+    syncModeButtons(mode);
+    const body = document.body;
+    if (!body) return;
+    const isShoot = mode === "shoot";
+    if (isShoot) {
+      body.classList.add("panel-hidden");
+    } else {
+      body.classList.remove("panel-hidden");
+    }
+    if (shootStartBtn) {
+      shootStartBtn.disabled = !isShoot;
+    }
+    if (shootModeHint) {
+      shootModeHint.style.display = isShoot ? "block" : "none";
+      if (isShoot) {
+        shootModeHint.textContent =
+          '촬영 모드입니다. 상단의 "촬영 시작(F5)" 버튼이나 F5 키로 타이머를 시작하세요.';
+      }
+    }
+  }
+
   // shape radios
   const shapeRadios = document.querySelectorAll('input[name="shape"]');
 
@@ -346,37 +377,6 @@ document.addEventListener("DOMContentLoaded", () => {
         input.focus();
         input.select();
       });
-    }
-
-    function syncModeButtons(mode) {
-      if (modeEditBtn) {
-        modeEditBtn.classList.toggle("active", mode === "edit");
-      }
-      if (modeShootBtn) {
-        modeShootBtn.classList.toggle("active", mode === "shoot");
-      }
-    }
-
-    function applyModeToUi(mode) {
-      syncModeButtons(mode);
-      const body = document.body;
-      if (!body) return;
-      const isShoot = mode === "shoot";
-      if (isShoot) {
-        body.classList.add("panel-hidden");
-      } else {
-        body.classList.remove("panel-hidden");
-      }
-      if (shootStartBtn) {
-        shootStartBtn.disabled = !isShoot;
-      }
-      if (shootModeHint) {
-        shootModeHint.style.display = isShoot ? "block" : "none";
-        if (isShoot) {
-          shootModeHint.textContent =
-            '촬영 모드입니다. 상단의 "촬영 시작(F5)" 버튼이나 F5 키로 타이머를 시작하세요.';
-        }
-      }
     }
 
     // Preset: Export (always all displays)

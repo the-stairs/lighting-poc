@@ -35,7 +35,9 @@ const MODE_EDIT = "edit";
 const MODE_SHOOT = "shoot";
 let currentMode = MODE_EDIT;
 let shootPlaying = false;
-let shootStartUnixMs = 0;
+let shootStartUnixMs = 0; // 유지: 메타데이터/디버그 용도
+let shootElapsedSec = 0;
+let shootLastPerfMs = null;
 
 function normalizeLayerType(value) {
   const s = String(value || "")
@@ -256,9 +258,11 @@ function initRealtime() {
           currentMode = MODE_SHOOT;
         }
         if (typeof body.startUnixMs === "number") {
-          shootStartUnixMs = Date.now();
-          shootPlaying = true;
+          shootStartUnixMs = body.startUnixMs;
         }
+        shootElapsedSec = 0;
+        shootLastPerfMs = null;
+        shootPlaying = true;
         return;
       }
     }
@@ -717,13 +721,20 @@ function ensureLightCaches(light) {
 function uploadUniforms() {
   if (!p5Sketch || !glShader) return;
   const state = getRenderState();
-  const nowMs = Date.now();
   let lights = state.lights || [];
   if (currentMode === MODE_SHOOT) {
     if (!shootPlaying) {
       lights = [];
     } else {
-      const tSec = (nowMs - shootStartUnixMs) / 1000;
+      const nowPerf =
+        typeof performance !== "undefined" ? performance.now() : 0;
+      if (shootLastPerfMs == null) {
+        shootLastPerfMs = nowPerf;
+      }
+      const dtSec = Math.max(0, (nowPerf - shootLastPerfMs) / 1000);
+      shootLastPerfMs = nowPerf;
+      shootElapsedSec += dtSec;
+      const tSec = shootElapsedSec;
       lights = lights.filter(function (l) {
         const s = Number.isFinite(l.startSec) ? l.startSec : 0;
         const d = Number.isFinite(l.durationSec) ? l.durationSec : 1;
@@ -1341,6 +1352,8 @@ function setMode(next) {
   if (next !== MODE_EDIT && next !== MODE_SHOOT) return;
   currentMode = next;
   shootPlaying = false;
+  shootElapsedSec = 0;
+  shootLastPerfMs = null;
   broadcastModeChange();
   dispatchEvent(
     new CustomEvent("app:modeChanged", {
@@ -1352,6 +1365,9 @@ function setMode(next) {
 function triggerShoot() {
   if (currentMode !== MODE_SHOOT) return;
   shootPlaying = true;
+  shootElapsedSec = 0;
+  shootLastPerfMs =
+    typeof performance !== "undefined" ? performance.now() : null;
   shootStartUnixMs = Date.now();
   broadcastShootTrigger();
 }
