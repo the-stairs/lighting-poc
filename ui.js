@@ -100,7 +100,9 @@ document.addEventListener("DOMContentLoaded", () => {
   if (displaySelect) {
     displaySelect.addEventListener("change", () => {
       const targetId = displaySelect.value || "all";
-      dispatchEvent(new CustomEvent("app:displayTargetChanged", { detail: { targetId } }));
+      dispatchEvent(
+        new CustomEvent("app:displayTargetChanged", { detail: { targetId } })
+      );
       if (window.app && typeof window.app.setEditTarget === "function") {
         window.app.setEditTarget(targetId);
       }
@@ -360,6 +362,10 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       if (shootModeHint) {
         shootModeHint.style.display = isShoot ? "block" : "none";
+        if (isShoot) {
+          shootModeHint.textContent =
+            '촬영 모드입니다. 상단의 "촬영 시작(F5)" 버튼이나 F5 키로 타이머를 시작하세요.';
+        }
       }
     }
 
@@ -661,7 +667,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function normalizeLayerType(type) {
-      const s = String(type || "").trim().toUpperCase();
+      const s = String(type || "")
+        .trim()
+        .toUpperCase();
       if (s === "FILTER" || s === "SOLID" || s === "LIGHT") return s;
       return "LIGHT";
     }
@@ -755,10 +763,7 @@ document.addEventListener("DOMContentLoaded", () => {
         vis.addEventListener("click", (e) => {
           e.stopPropagation();
           if (!window.app) return;
-          if (
-            typeof window.app.selectLightById === "function" &&
-            light.id
-          ) {
+          if (typeof window.app.selectLightById === "function" && light.id) {
             window.app.selectLightById(light.id);
           }
           if (typeof window.app.updateSelectedLight === "function") {
@@ -1084,8 +1089,13 @@ document.addEventListener("DOMContentLoaded", () => {
     if (shootStartBtn) {
       shootStartBtn.addEventListener("click", (e) => {
         e.stopPropagation();
-        if (!window.app || typeof window.app.triggerShoot !== "function") return;
+        if (!window.app || typeof window.app.triggerShoot !== "function")
+          return;
         window.app.triggerShoot();
+        if (shootModeHint) {
+          shootModeHint.textContent =
+            "촬영이 진행 중입니다. 타이머가 끝날 때까지 기다려 주세요.";
+        }
       });
     }
 
@@ -1111,7 +1121,9 @@ document.addEventListener("DOMContentLoaded", () => {
         if (widthValue) widthValue.textContent = String(Math.round(canvasW));
         if (heightValue) heightValue.textContent = String(Math.round(canvasH));
       } else {
-        const r = Math.ceil(Math.sqrt(canvasW * canvasW + canvasH * canvasH) / 2);
+        const r = Math.ceil(
+          Math.sqrt(canvasW * canvasW + canvasH * canvasH) / 2
+        );
         window.app.updateSelectedLight({
           x: cx,
           y: cy,
@@ -1139,7 +1151,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         window.app.updateSelectedLight({ type });
         updateTypeUi(type);
-        const updated = window.app.getSelectedLight && window.app.getSelectedLight();
+        const updated =
+          window.app.getSelectedLight && window.app.getSelectedLight();
         if (updated && lightColor) {
           lightColor.value = updated.color || "#ffffff";
         }
@@ -1216,6 +1229,12 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
+    window.addEventListener("app:modeChanged", (e) => {
+      const detail = (e && e.detail) || {};
+      const mode = detail.mode === "shoot" ? "shoot" : "edit";
+      applyModeToUi(mode);
+    });
+
     window.addEventListener("app:lightsChanged", (e) => {
       const detail = (e && e.detail) || {};
       renderLayerList(detail.lights || [], detail.selectedLightId || null);
@@ -1271,7 +1290,6 @@ document.addEventListener("DOMContentLoaded", () => {
     enableOutputNumberEdit(sizeYValue, sizeYSlider, { decimals: 2 });
   });
 
-
   // Panel toggle button and hotkey
   function updateToggleButtonLabel() {
     const hidden = document.body.classList.contains("panel-hidden");
@@ -1319,7 +1337,9 @@ document.addEventListener("DOMContentLoaded", () => {
   document.addEventListener("keydown", (e) => {
     const key = e.key.toLowerCase();
     const tag = (e.target && e.target.tagName) || "";
-    if (["INPUT", "TEXTAREA", "SELECT"].includes(tag)) return; // avoid while typing
+    const isFormTag = ["INPUT", "TEXTAREA", "SELECT"].includes(tag);
+    const isFunctionKey = key === "f3" || key === "f4" || key === "f5";
+    if (isFormTag && !isFunctionKey) return; // 입력 중에는 일반 키만 무시, F3/F4/F5는 항상 동작
     if (key === "d") {
       e.preventDefault();
       togglePanelDock();
@@ -1342,24 +1362,25 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     if (key === "f3") {
       e.preventDefault();
-      if (window.app && typeof window.app.setMode === "function") {
-        window.app.setMode("edit");
-      }
+      if (!window.app || typeof window.app.setMode !== "function") return;
+      window.app.setMode("edit");
       applyModeToUi("edit");
       return;
     }
     if (key === "f4") {
       e.preventDefault();
-      if (window.app && typeof window.app.setMode === "function") {
-        window.app.setMode("shoot");
-      }
-       applyModeToUi("shoot");
+      if (!window.app || typeof window.app.setMode !== "function") return;
+      window.app.setMode("shoot");
+      applyModeToUi("shoot");
       return;
     }
     if (key === "f5") {
       e.preventDefault();
-      if (window.app && typeof window.app.triggerShoot === "function") {
-        window.app.triggerShoot();
+      if (!window.app || typeof window.app.triggerShoot !== "function") return;
+      window.app.triggerShoot();
+      if (shootModeHint) {
+        shootModeHint.textContent =
+          "촬영이 진행 중입니다. 타이머가 끝날 때까지 기다려 주세요.";
       }
     }
   });

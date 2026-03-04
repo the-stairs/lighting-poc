@@ -1341,6 +1341,11 @@ function setMode(next) {
   currentMode = next;
   shootPlaying = false;
   broadcastModeChange();
+  dispatchEvent(
+    new CustomEvent("app:modeChanged", {
+      detail: { mode: currentMode },
+    })
+  );
 }
 
 function triggerShoot() {
