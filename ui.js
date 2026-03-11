@@ -1441,7 +1441,23 @@ document.addEventListener("DOMContentLoaded", () => {
     const tag = (e.target && e.target.tagName) || "";
     const isFormTag = ["INPUT", "TEXTAREA", "SELECT"].includes(tag);
     const isFunctionKey = key === "f3" || key === "f4" || key === "f5";
-    if (isFormTag && !isFunctionKey) return; // 입력 중에는 일반 키만 무시, F3/F4/F5는 항상 동작
+    const isCtrl = e.ctrlKey || e.metaKey;
+    if (isFormTag && !isFunctionKey && !isCtrl) return; // 입력 중에는 일반 키만 무시, F3/F4/F5와 Ctrl 조합은 허용
+    if (isCtrl && key === "c") {
+      if (!window.app || typeof window.app.copySelectedLight !== "function")
+        return;
+      const state = window.app.getState && window.app.getState();
+      if (state && state.mode === "shoot") return;
+      window.app.copySelectedLight();
+      return;
+    }
+    if (isCtrl && key === "v") {
+      if (!window.app || typeof window.app.pasteLight !== "function") return;
+      const state = window.app.getState && window.app.getState();
+      if (state && state.mode === "shoot") return;
+      window.app.pasteLight();
+      return;
+    }
     if (key === "d") {
       e.preventDefault();
       togglePanelDock();
