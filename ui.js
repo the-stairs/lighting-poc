@@ -7,6 +7,7 @@ function $(sel) {
 document.addEventListener("DOMContentLoaded", () => {
   const togglePanelBtn = $("#togglePanelBtn");
   const toggleDockBtn = $("#toggleDockBtn");
+  const resetAllDisplaysBtn = $("#resetAllDisplaysBtn");
   const panelDockState = $("#panelDockState");
   const bgBlack = $("#bg-black");
   const bgWhite = $("#bg-white");
@@ -1381,6 +1382,16 @@ document.addEventListener("DOMContentLoaded", () => {
         typeof window.app.clearSelection === "function"
       ) {
         window.app.clearSelection();
+      }
+    });
+  }
+  if (resetAllDisplaysBtn) {
+    resetAllDisplaysBtn.addEventListener("click", () => {
+      if (
+        window.app &&
+        typeof window.app.resetAllDisplaysToDefault === "function"
+      ) {
+        window.app.resetAllDisplaysToDefault();
       }
     });
   }
