@@ -32,6 +32,34 @@ const BLEND_MULTIPLY = 2;
 
 let lightClipboard = null;
 
+function getSelectedIds() {
+  if (Array.isArray(appState.selectedLightIds)) {
+    return appState.selectedLightIds.slice();
+  }
+  return appState.selectedLightId ? [appState.selectedLightId] : [];
+}
+
+function applySelection(ids, primaryId) {
+  const unique = Array.from(new Set(ids)).filter((id) =>
+    appState.lights.some((l) => l.id === id)
+  );
+  const primary =
+    primaryId && unique.includes(primaryId)
+      ? primaryId
+      : unique.length
+      ? unique[unique.length - 1]
+      : null;
+  appState.selectedLightIds = unique;
+  appState.primarySelectedId = primary;
+  appState.selectedLightId = primary;
+}
+
+function clearSelectionInternal() {
+  appState.selectedLightIds = [];
+  appState.primarySelectedId = null;
+  appState.selectedLightId = null;
+}
+
 const TYPE_LIGHT = "LIGHT";
 const TYPE_FILTER = "FILTER";
 const TYPE_SOLID = "SOLID";
@@ -82,6 +110,8 @@ function dispatchLightsChanged() {
       detail: {
         lights: appState.lights.map((l) => ({ ...l })),
         selectedLightId: appState.selectedLightId,
+        selectedLightIds: appState.selectedLightIds || [],
+        primarySelectedId: appState.primarySelectedId || null,
       },
     })
   );
@@ -96,7 +126,11 @@ const appState = {
   colorSpace: 1, // 0: linear input, 1: sRGB input (palette)
   lights: [],
   selectedLightId: null,
+  selectedLightIds: [],
+  primarySelectedId: null,
   dragOffset: { x: 0, y: 0 },
+  multiDragAnchorId: null,
+  multiDragOffsets: [],
   dragging: false,
   hoveredIdx: -1,
   previewMode: false,
@@ -390,13 +424,35 @@ function initP5Sketch() {
       const idx = hitTest(p5Sketch.mouseX, p5Sketch.mouseY);
       if (idx !== -1) {
         const light = appState.lights[idx];
-        appState.selectedLightId = light.id;
-        appState.dragging = true;
-        appState.dragOffset.x = p5Sketch.mouseX - light.x;
-        appState.dragOffset.y = p5Sketch.mouseY - light.y;
-        emitSelectionChange();
-        dispatchLightsChanged();
-        scheduleSyncToDisplay();
+        const ids = getSelectedIds();
+        const alreadySelected = ids.includes(light.id);
+        if (alreadySelected && ids.length > 1) {
+          // 다중 선택 드래그 시작
+          appState.multiDragAnchorId = light.id;
+          appState.multiDragOffsets = ids.map((id) => {
+            const l = appState.lights.find((x) => x.id === id);
+            if (!l) return null;
+            return {
+              id,
+              dx: l.x - light.x,
+              dy: l.y - light.y,
+            };
+          }).filter(Boolean);
+          appState.dragging = true;
+          appState.dragOffset.x = p5Sketch.mouseX - light.x;
+          appState.dragOffset.y = p5Sketch.mouseY - light.y;
+        } else {
+          // 단일 선택으로 전환 후 드래그
+          applySelection([light.id], light.id);
+          appState.multiDragAnchorId = null;
+          appState.multiDragOffsets = [];
+          appState.dragging = true;
+          appState.dragOffset.x = p5Sketch.mouseX - light.x;
+          appState.dragOffset.y = p5Sketch.mouseY - light.y;
+          emitSelectionChange();
+          dispatchLightsChanged();
+          scheduleSyncToDisplay();
+        }
       } else {
         const light = createLightAt(
           p5Sketch.mouseX,
@@ -405,7 +461,7 @@ function initP5Sketch() {
           appState.creationType
         );
         appState.lights.push(light);
-        appState.selectedLightId = light.id;
+        applySelection([light.id], light.id);
         appState.dragging = true;
         appState.dragOffset.x = 0;
         appState.dragOffset.y = 0;
@@ -419,10 +475,29 @@ function initP5Sketch() {
       if (appConfig.role === "display") return;
       if (isPointerOverPanel()) return;
       if (!appState.dragging) return;
-      const selected = getSelectedLight();
-      if (!selected) return;
-      selected.x = p5Sketch.mouseX - appState.dragOffset.x;
-      selected.y = p5Sketch.mouseY - appState.dragOffset.y;
+      const ids = getSelectedIds();
+      if (!ids.length) return;
+      const anchorId =
+        appState.multiDragAnchorId && ids.includes(appState.multiDragAnchorId)
+          ? appState.multiDragAnchorId
+          : ids[0];
+      const anchor = appState.lights.find((l) => l.id === anchorId);
+      if (!anchor) return;
+      const newAnchorX = p5Sketch.mouseX - appState.dragOffset.x;
+      const newAnchorY = p5Sketch.mouseY - appState.dragOffset.y;
+      if (ids.length === 1 || !appState.multiDragOffsets.length) {
+        anchor.x = newAnchorX;
+        anchor.y = newAnchorY;
+      } else {
+        anchor.x = newAnchorX;
+        anchor.y = newAnchorY;
+        appState.multiDragOffsets.forEach((info) => {
+          const l = appState.lights.find((x) => x.id === info.id);
+          if (!l || info.id === anchorId) return;
+          l.x = newAnchorX + info.dx;
+          l.y = newAnchorY + info.dy;
+        });
+      }
       dispatchLightsChanged();
       scheduleSyncToDisplay();
     };
@@ -431,6 +506,8 @@ function initP5Sketch() {
       if (appConfig.role === "display") return;
       if (isPointerOverPanel()) return;
       appState.dragging = false;
+      appState.multiDragAnchorId = null;
+      appState.multiDragOffsets = [];
     };
 
     p.doubleClicked = function () {
@@ -615,9 +692,20 @@ function createLightAt(x, y, shape, layerType = TYPE_LIGHT) {
 }
 
 function getSelectedLight() {
-  const id = appState.selectedLightId;
+  const id =
+    appState.primarySelectedId ||
+    appState.selectedLightId ||
+    (appState.selectedLightIds && appState.selectedLightIds[0]);
   if (!id) return null;
   return appState.lights.find((l) => l.id === id) || null;
+}
+
+function getSelectedLights() {
+  const ids = getSelectedIds();
+  if (!ids.length) return [];
+  return ids
+    .map((id) => appState.lights.find((l) => l.id === id) || null)
+    .filter(Boolean);
 }
 
 function copySelectedLightToClipboard() {
@@ -1070,7 +1158,11 @@ function updateSelectedLight(props) {
 function emitSelectionChange() {
   const l = getSelectedLight();
   const detail = l ? { ...l } : null;
-  dispatchEvent(new CustomEvent("app:selected", { detail }));
+  dispatchEvent(
+    new CustomEvent("app:selected", {
+      detail,
+    })
+  );
 }
 
 function getState() {
@@ -1090,13 +1182,11 @@ function addLayerAtCenter(type) {
 }
 
 function deleteSelectedLight() {
-  const id = appState.selectedLightId;
-  if (!id) return;
-  const idx = appState.lights.findIndex((l) => l.id === id);
-  if (idx === -1) return;
-  appState.lights.splice(idx, 1);
+  const ids = getSelectedIds();
+  if (!ids.length) return;
+  appState.lights = appState.lights.filter((l) => !ids.includes(l.id));
   appState.hoveredIdx = -1;
-  appState.selectedLightId = null;
+  clearSelectionInternal();
   appState.dragging = false;
   emitSelectionChange();
   dispatchLightsChanged();
@@ -1104,17 +1194,28 @@ function deleteSelectedLight() {
 }
 
 function clearSelection() {
-  if (!appState.selectedLightId) return;
-  appState.selectedLightId = null;
+  if (
+    !appState.selectedLightId &&
+    (!appState.selectedLightIds || appState.selectedLightIds.length === 0)
+  ) {
+    return;
+  }
+  clearSelectionInternal();
   appState.dragging = false;
   emitSelectionChange();
+}
+
+function setSelection(ids, primaryId) {
+  applySelection(ids || [], primaryId || null);
+  emitSelectionChange();
+  dispatchLightsChanged();
 }
 
 function selectLightById(id) {
   if (typeof id !== "string") return;
   const exists = appState.lights.some((l) => l.id === id);
   if (!exists) return;
-  appState.selectedLightId = id;
+  applySelection([id], id);
   emitSelectionChange();
   dispatchLightsChanged();
 }
@@ -1149,7 +1250,7 @@ function reorderLightsById(dragId, targetId, place = "before") {
   appState.lights.splice(insertIdx, 0, item);
   dispatchLightsChanged();
   scheduleSyncToDisplay();
-  if (appState.selectedLightId) emitSelectionChange();
+  if (getSelectedIds().length) emitSelectionChange();
 }
 
 // ============ Preset (Export/Import) ============
@@ -1362,10 +1463,11 @@ function applyPresetToState(targetState, preset) {
       typeof preset.selectedLightId === "string"
         ? preset.selectedLightId
         : null;
-    appState.selectedLightId =
+    const finalId =
       selectedId && appState.lights.some((l) => l.id === selectedId)
         ? selectedId
         : null;
+    applySelection(finalId ? [finalId] : [], finalId || null);
     appState.dragging = false;
     emitSelectionChange();
     dispatchLightsChanged();
@@ -1493,4 +1595,5 @@ window.app = {
     applyPreset(presetObj, importOptions),
   copySelectedLight: () => copySelectedLightToClipboard(),
   pasteLight: () => pasteLightFromClipboard(),
+  setSelection: (ids, primaryId) => setSelection(ids, primaryId),
 };

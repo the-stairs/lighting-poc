@@ -719,7 +719,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let dragId = null;
 
-    function renderLayerList(lights, selectedId) {
+    function renderLayerList(lights, selectedIds, primaryId) {
       if (!layerList) return;
       layerList.innerHTML = "";
       if (!Array.isArray(lights) || lights.length === 0) {
@@ -729,15 +729,24 @@ document.addEventListener("DOMContentLoaded", () => {
         layerList.appendChild(empty);
         return;
       }
+      const selectedSet = Array.isArray(selectedIds)
+        ? new Set(selectedIds)
+        : selectedIds
+        ? new Set([selectedIds])
+        : new Set();
 
       for (let i = lights.length - 1; i >= 0; i--) {
         const light = lights[i];
         const row = document.createElement("div");
         row.className = "layer-row";
         row.dataset.id = light.id;
+        row.dataset.index = String(i);
         row.draggable = true;
-        if (selectedId && light.id === selectedId) {
+        if (selectedSet.has(light.id)) {
           row.classList.add("selected");
+        }
+        if (primaryId && light.id === primaryId) {
+          row.classList.add("primary-selected");
         }
 
         const label = document.createElement("div");
@@ -816,8 +825,64 @@ document.addEventListener("DOMContentLoaded", () => {
           }
         });
 
-        row.addEventListener("click", () => {
-          if (window.app && typeof window.app.selectLightById === "function") {
+        row.addEventListener("click", (e) => {
+          if (!window.app || typeof window.app.getState !== "function") return;
+          const state = window.app.getState() || {};
+          const lightsArr = state.lights || [];
+          const existingIds =
+            state.selectedLightIds && state.selectedLightIds.length
+              ? state.selectedLightIds.slice()
+              : state.selectedLightId
+              ? [state.selectedLightId]
+              : [];
+          const useCtrl = e.ctrlKey || e.metaKey;
+          const useShift = e.shiftKey;
+          let nextIds = existingIds;
+          let primary = light.id;
+          if (useShift && lightsArr.length) {
+            const targetIdx = lightsArr.findIndex((l) => l.id === light.id);
+            const anchorId =
+              state.primarySelectedId ||
+              (existingIds.length ? existingIds[existingIds.length - 1] : null) ||
+              light.id;
+            const anchorIdx = lightsArr.findIndex((l) => l.id === anchorId);
+            if (targetIdx !== -1 && anchorIdx !== -1) {
+              const start = Math.min(targetIdx, anchorIdx);
+              const end = Math.max(targetIdx, anchorIdx);
+              nextIds = [];
+              for (let j = start; j <= end; j++) {
+                nextIds.push(lightsArr[j].id);
+              }
+              primary = light.id;
+            } else {
+              nextIds = [light.id];
+              primary = light.id;
+            }
+          } else if (useCtrl) {
+            const existsIdx = existingIds.indexOf(light.id);
+            if (existsIdx !== -1) {
+              existingIds.splice(existsIdx, 1);
+              nextIds = existingIds;
+              primary =
+                state.primarySelectedId && existingIds.includes(state.primarySelectedId)
+                  ? state.primarySelectedId
+                  : existingIds.length
+                  ? existingIds[existingIds.length - 1]
+                  : null;
+            } else {
+              nextIds = existingIds.concat(light.id);
+              primary = light.id;
+            }
+          } else {
+            nextIds = [light.id];
+            primary = light.id;
+          }
+          if (window.app && typeof window.app.setSelection === "function") {
+            window.app.setSelection(nextIds, primary);
+          } else if (
+            window.app &&
+            typeof window.app.selectLightById === "function"
+          ) {
             window.app.selectLightById(light.id);
           }
         });
@@ -910,7 +975,12 @@ document.addEventListener("DOMContentLoaded", () => {
       updateSelectionIndicator(light);
       if (!light) {
         const state = window.app.getState && window.app.getState();
-        if (state) renderLayerList(state.lights, state.selectedLightId);
+        if (state)
+          renderLayerList(
+            state.lights,
+            state.selectedLightIds || [],
+            state.primarySelectedId || state.selectedLightId || null
+          );
         return;
       }
       if (selectedType) {
@@ -979,7 +1049,12 @@ document.addEventListener("DOMContentLoaded", () => {
         timerDurationInput.value = String(d);
       }
       const state = window.app.getState && window.app.getState();
-      if (state) renderLayerList(state.lights, state.selectedLightId);
+      if (state)
+        renderLayerList(
+          state.lights,
+          state.selectedLightIds || [],
+          state.primarySelectedId || state.selectedLightId || null
+        );
     });
 
     // Inputs -> selected light
@@ -1321,7 +1396,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     window.addEventListener("app:lightsChanged", (e) => {
       const detail = (e && e.detail) || {};
-      renderLayerList(detail.lights || [], detail.selectedLightId || null);
+      renderLayerList(
+        detail.lights || [],
+        detail.selectedLightIds || [],
+        detail.primarySelectedId || detail.selectedLightId || null
+      );
       if (
         window.app &&
         typeof window.app.getSelectedLight === "function" &&
@@ -1349,7 +1428,11 @@ document.addEventListener("DOMContentLoaded", () => {
     updateVisibilityByType(null);
     const initialState = window.app.getState && window.app.getState();
     if (initialState) {
-      renderLayerList(initialState.lights, initialState.selectedLightId);
+      renderLayerList(
+        initialState.lights,
+        initialState.selectedLightIds || [],
+        initialState.primarySelectedId || initialState.selectedLightId || null
+      );
       if (initialState.mode) {
         applyModeToUi(initialState.mode);
       }
