@@ -56,6 +56,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const opacityMinus = $("#opacityMinus");
   const opacityPlus = $("#opacityPlus");
   const opacityDebug = $("#opacityDebug");
+  const angleSlider = $("#angleSlider");
+  const angleValue = $("#angleValue");
+  const angleMinus = $("#angleMinus");
+  const anglePlus = $("#anglePlus");
   const softnessSlider = $("#softnessSlider");
   const softnessValue = $("#softnessValue");
   const softnessMinus = $("#softnessMinus");
@@ -569,6 +573,9 @@ document.addEventListener("DOMContentLoaded", () => {
         opacityMinus,
         opacitySlider,
         opacityPlus,
+        angleMinus,
+        angleSlider,
+        anglePlus,
         softnessMinus,
         softnessSlider,
         softnessPlus,
@@ -941,6 +948,13 @@ document.addEventListener("DOMContentLoaded", () => {
       if (opacityDebug) {
         opacityDebug.textContent = `selected light opacity = ${op.toFixed(2)}`;
       }
+      const rotRad = Number.isFinite(light.rotation) ? light.rotation : 0;
+      const rotDeg = Math.max(
+        -180,
+        Math.min(180, (rotRad * 180) / Math.PI)
+      );
+      if (angleSlider) angleSlider.value = String(Math.round(rotDeg));
+      if (angleValue) angleValue.textContent = `${Math.round(rotDeg)}°`;
       softnessSlider.value = Math.round(light.feather || 150);
       const featherLabel = formatFeatherLabel(softnessSlider.value, light);
       softnessValue.textContent = featherLabel.text;
@@ -1052,6 +1066,17 @@ document.addEventListener("DOMContentLoaded", () => {
             2
           )}`;
         }
+      });
+    }
+    if (angleSlider) {
+      angleSlider.addEventListener("input", (e) => {
+        const deg = Math.max(-180, Math.min(180, Number(e.target.value)));
+        if (angleValue) angleValue.textContent = `${Math.round(deg)}°`;
+        const rad = (deg * Math.PI) / 180;
+        window.app.updateSelectedLight({
+          rotation: rad,
+          rotationDeg: deg,
+        });
       });
     }
     if (softnessSlider) {
@@ -1245,6 +1270,12 @@ document.addEventListener("DOMContentLoaded", () => {
       plusBtn: falloffPlus,
       slider: falloffSlider,
       step: 0.1,
+    });
+    bindStepButtons({
+      minusBtn: angleMinus,
+      plusBtn: anglePlus,
+      slider: angleSlider,
+      step: 1,
     });
 
     // Delete selected

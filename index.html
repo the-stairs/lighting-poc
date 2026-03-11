@@ -401,6 +401,38 @@
               <button
                 type="button"
                 class="step-btn"
+                id="angleMinus"
+                title="-1°"
+              >
+                −
+              </button>
+              <label class="grow">
+                <span>각도 (Angle)</span>
+                <input
+                  id="angleSlider"
+                  type="range"
+                  min="-180"
+                  max="180"
+                  step="1"
+                  value="0"
+                  disabled
+                />
+              </label>
+              <button
+                type="button"
+                class="step-btn"
+                id="anglePlus"
+                title="+1°"
+              >
+                +
+              </button>
+              <output id="angleValue">0°</output>
+            </div>
+
+            <div class="row">
+              <button
+                type="button"
+                class="step-btn"
                 id="softnessMinus"
                 title="-5"
               >
