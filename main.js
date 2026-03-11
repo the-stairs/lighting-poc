@@ -583,7 +583,7 @@ function createLightAt(x, y, shape, layerType = TYPE_LIGHT) {
     colorTintLinear: hexToTintLinearRgb(baseColor),
     _colorHexCache: baseColor,
     startSec: 0.0,
-    durationSec: 1.0,
+    durationSec: 4.0,
     type,
     blendMode: typeToBlendMode(type),
     intensity: 400, // 0..INTENSITY_MAX (HDR)
@@ -1139,7 +1139,7 @@ function sanitizeLight(raw) {
     opacity: clamp(raw.opacity, 0, 1, 1),
     rotation: clamp(raw.rotation, -Math.PI, Math.PI, 0),
     startSec: clamp(raw.startSec, 0, 600, 0),
-    durationSec: clamp(raw.durationSec, 0, 600, 1),
+    durationSec: clamp(raw.durationSec, 0, 600, 4),
     type: layerType,
     blendMode: typeToBlendMode(layerType),
   };
