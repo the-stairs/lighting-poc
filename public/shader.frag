@@ -36,17 +36,18 @@ vec2 rotate2D(vec2 p, float r) {
   return mat2(c, -s, s, c) * p;
 }
 
-// profile + falloff t from edge distance
+// profile + falloff t from edge distance (경계를 더 흐리게: t를 완만한 곡선으로)
 vec2 profileAndTFalloff(float edgeDist, float start, float end) {
   float denom = max(end - start, 1e-6);
   float t = clamp((edgeDist - start) / denom, 0.0, 1.0);
+  float tSoft = pow(t, 0.82); // 1보다 작은 지수 → 전환 구간이 더 길고 부드러움
   float profile;
   if (edgeDist >= end) {
     profile = 0.0;
   } else if (edgeDist <= start) {
     profile = 1.0;
   } else {
-    profile = 1.0 - smoothstep(0.0, 1.0, t);
+    profile = 1.0 - smoothstep(0.0, 1.0, tSoft);
   }
   return vec2(profile, t);
 }
@@ -125,7 +126,7 @@ void main() {
       profile = pt.x;
       tFalloff = pt.y;
     }
-    const float EDGE_GAMMA = 1.6; // perceptual edge lock (softer rolloff)
+    const float EDGE_GAMMA = 0.72; // 낮을수록 경계가 더 흐리게(부드럽게) 전환
     profile = pow(profile, EDGE_GAMMA);
 
     // falloff uses the same normalized space as profile for consistency
