@@ -638,9 +638,14 @@ document.addEventListener("DOMContentLoaded", () => {
               (light.radius || 0) * Math.max(light.sizeX || 1, light.sizeY || 1)
             )
           : Math.max(0, Math.max(light.width || 0, light.height || 0) * 0.5);
-      const t = clamp01(ui / 800, 0);
-      const perceptual = Math.pow(t, 2.2);
-      const applied = perceptual * Math.min(800, cap);
+      const FEATHER_UI_MAX = 1600;
+      const FEATHER_MAX_MULTIPLIER = 3.5;
+      const t = clamp01(ui / FEATHER_UI_MAX, 0);
+      const perceptual = Math.pow(t, 1.0);
+      let applied = perceptual * Math.min(FEATHER_UI_MAX, cap);
+      if (t >= 0.85) {
+        applied = Math.max(applied, perceptual * cap * FEATHER_MAX_MULTIPLIER);
+      }
       return {
         text: `${Math.round(applied)}px`,
         title: `feather ui=${Math.round(ui)} => applied=${Math.round(
@@ -1233,7 +1238,7 @@ document.addEventListener("DOMContentLoaded", () => {
       minusBtn: softnessMinus,
       plusBtn: softnessPlus,
       slider: softnessSlider,
-      step: 5,
+      step: 10,
     });
     bindStepButtons({
       minusBtn: falloffMinus,

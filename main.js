@@ -18,8 +18,10 @@ document.body.classList.add(
 
 const U_MAX_LIGHTS = 64;
 const INTENSITY_MAX = 2000; // HDR scale per spec
-const FEATHER_UI_MAX = 800;
-const FEATHER_PX_CAP = 800;
+const FEATHER_UI_MAX = 1600;
+const FEATHER_PX_CAP = 1600;
+/** 슬라이더 최대 도달 시 페더를 광원 크기의 이 배수만큼까지 허용 (훨씬 흐리게) */
+const FEATHER_MAX_MULTIPLIER = 3.5;
 const OUT_RATIO = 0.15;
 const IN_RATIO = 1.0 - OUT_RATIO;
 const DEBUG_LOGS = false;
@@ -813,11 +815,17 @@ function uploadUniforms() {
     }
     sizeArr[i] = sizePx;
     const t = p5Sketch.constrain((l.feather ?? 150) / FEATHER_UI_MAX, 0, 1);
-    const perceptual = Math.pow(t, 2.2);
-    const featherPx = perceptual * Math.min(FEATHER_PX_CAP, sizePx);
+    const perceptual = Math.pow(t, 1.0); // linear: 슬라이더 변화가 시각적으로 크게 반영
+    let featherPx = perceptual * Math.min(FEATHER_PX_CAP, sizePx);
     const capByInward = (minHalfSize * 0.9) / Math.max(IN_RATIO, 1e-6);
-    const MAX_SPILL = minHalfSize * 0.4; // tuning point
-    const capByOutward = MAX_SPILL / Math.max(OUT_RATIO, 1e-6);
+    const spillBase = minHalfSize * 0.4;
+    const spillAtMax = minHalfSize * 1.4;
+    const maxSpill = spillBase + (spillAtMax - spillBase) * t * t;
+    const capByOutward = maxSpill / Math.max(OUT_RATIO, 1e-6);
+    if (t >= 0.85) {
+      const maxFeatherAtFull = sizePx * FEATHER_MAX_MULTIPLIER;
+      featherPx = Math.max(featherPx, perceptual * maxFeatherAtFull);
+    }
     featherArr[i] = Math.min(featherPx, capByInward, capByOutward);
     falloffArr[i] = p5Sketch.constrain(l.falloffK ?? 1.5, 0.1, 8);
     rotationArr[i] = l.rotation ?? 0.0;
