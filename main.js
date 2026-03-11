@@ -112,7 +112,10 @@ function getRenderState() {
   return appConfig.role === "display" ? displayState : appState;
 }
 
-const REALTIME_CHANNEL_NAME = "poc-light-sync";
+const REALTIME_CHANNEL_NAME =
+  typeof import.meta !== "undefined" && import.meta.env && import.meta.env.DEV
+    ? "poc-light-sync-dev"
+    : "poc-light-sync";
 const REALTIME_EVENT = "message";
 const SYNC_DEBOUNCE_MS = 280;
 let realtimeChannel = null;
