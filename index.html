@@ -24,7 +24,16 @@
     </div>
     <div id="app-page" class="app-page" hidden>
       <aside class="panel" id="control-panel">
-        <h1>Lighting POC</h1>
+        <div class="panel-title-row">
+          <h1>Lighting POC</h1>
+          <button
+            type="button"
+            id="resetAllDisplaysBtn"
+            title="모든 디스플레이를 초기값으로 초기화"
+          >
+            <span aria-hidden="true">🔄</span> 전체 초기화
+          </button>
+        </div>
 
         <details class="group" id="display-section">
           <summary>🖥 디스플레이</summary>
@@ -572,10 +581,11 @@
           <span aria-hidden="true">⏺</span> 촬영 시작(F5)
         </button>
       </div>
-      <div id="shootModeHint" class="shoot-mode-hint muted small">
+      <!-- FIXME: 촬영 모드, 촬영 중 안내 임시 삭제 -->
+      <!-- <div id="shootModeHint" class="shoot-mode-hint muted small">
         촬영 모드입니다. 상단의 &ldquo;촬영 시작(F5)&rdquo; 버튼이나 F5 키로
         타이머를 시작하세요.
-      </div>
+      </div> -->
     </div>
 
     <script type="module" src="/nav.js"></script>

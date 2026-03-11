@@ -112,7 +112,10 @@ function getRenderState() {
   return appConfig.role === "display" ? displayState : appState;
 }
 
-const REALTIME_CHANNEL_NAME = "poc-light-sync";
+const REALTIME_CHANNEL_NAME =
+  typeof import.meta !== "undefined" && import.meta.env && import.meta.env.DEV
+    ? "poc-light-sync-dev"
+    : "poc-light-sync";
 const REALTIME_EVENT = "message";
 const SYNC_DEBOUNCE_MS = 280;
 let realtimeChannel = null;
@@ -580,7 +583,7 @@ function createLightAt(x, y, shape, layerType = TYPE_LIGHT) {
     colorTintLinear: hexToTintLinearRgb(baseColor),
     _colorHexCache: baseColor,
     startSec: 0.0,
-    durationSec: 1.0,
+    durationSec: 4.0,
     type,
     blendMode: typeToBlendMode(type),
     intensity: 400, // 0..INTENSITY_MAX (HDR)
@@ -1136,7 +1139,7 @@ function sanitizeLight(raw) {
     opacity: clamp(raw.opacity, 0, 1, 1),
     rotation: clamp(raw.rotation, -Math.PI, Math.PI, 0),
     startSec: clamp(raw.startSec, 0, 600, 0),
-    durationSec: clamp(raw.durationSec, 0, 600, 1),
+    durationSec: clamp(raw.durationSec, 0, 600, 4),
     type: layerType,
     blendMode: typeToBlendMode(layerType),
   };
@@ -1396,6 +1399,7 @@ window.app = {
   setEditTarget,
   setMode,
   triggerShoot,
+  resetAllDisplaysToDefault,
   exportPreset: (exportOptions) => exportPresetData(exportOptions),
   importPreset: (presetObj, importOptions) =>
     applyPreset(presetObj, importOptions),
