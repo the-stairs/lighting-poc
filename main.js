@@ -721,7 +721,22 @@ function copySelectedLightToClipboard() {
     minX = 0;
     minY = 0;
   }
+  const ids = getSelectedIds();
+  let anchorX = minX;
+  let anchorY = minY;
+  if (ids.length) {
+    const anchorId =
+      appState.primarySelectedId || ids[ids.length - 1] || null;
+    const anchor =
+      (anchorId && sel.find((l) => l.id === anchorId)) || sel[sel.length - 1];
+    if (anchor) {
+      anchorX = anchor.x || 0;
+      anchorY = anchor.y || 0;
+    }
+  }
   lightClipboard = {
+    anchorX,
+    anchorY,
     items: sel.map((src) => ({
       type: src.type,
       shape: src.shape,
@@ -753,8 +768,15 @@ function pasteLightFromClipboard() {
   if (!items.length) return;
   const canvasW = Math.max(1, (p5Sketch && p5Sketch.width) || 1);
   const canvasH = Math.max(1, (p5Sketch && p5Sketch.height) || 1);
-  const originX = Math.max(0, Math.min(canvasW, 30));
-  const originY = Math.max(0, Math.min(canvasH, 30));
+  const offset = 30;
+  const anchorX = Number.isFinite(lightClipboard.anchorX)
+    ? lightClipboard.anchorX + offset
+    : canvasW / 2 + offset;
+  const anchorY = Number.isFinite(lightClipboard.anchorY)
+    ? lightClipboard.anchorY + offset
+    : canvasH / 2 + offset;
+  const originX = Math.max(0, Math.min(canvasW, anchorX));
+  const originY = Math.max(0, Math.min(canvasH, anchorY));
   const newIds = [];
   items.forEach((src) => {
     const id = "light-" + Math.random().toString(36).slice(2, 10);
