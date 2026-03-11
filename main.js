@@ -709,81 +709,101 @@ function getSelectedLights() {
 }
 
 function copySelectedLightToClipboard() {
-  const src = getSelectedLight();
-  if (!src) return;
+  const sel = getSelectedLights();
+  if (!sel.length) return;
+  let minX = Infinity;
+  let minY = Infinity;
+  sel.forEach((l) => {
+    minX = Math.min(minX, l.x || 0);
+    minY = Math.min(minY, l.y || 0);
+  });
+  if (!Number.isFinite(minX) || !Number.isFinite(minY)) {
+    minX = 0;
+    minY = 0;
+  }
   lightClipboard = {
-    type: src.type,
-    shape: src.shape,
-    x: src.x,
-    y: src.y,
-    width: src.width,
-    height: src.height,
-    radius: src.radius,
-    sizeX: src.sizeX,
-    sizeY: src.sizeY,
-    color: src.color,
-    intensity: src.intensity,
-    feather: src.feather,
-    falloffK: src.falloffK,
-    opacity: src.opacity,
-    rotation: src.rotation,
-    rotationDeg: src.rotationDeg,
-    startSec: src.startSec,
-    durationSec: src.durationSec,
-    blendMode: src.blendMode,
-    role: src.role,
+    items: sel.map((src) => ({
+      type: src.type,
+      shape: src.shape,
+      dx: (src.x || 0) - minX,
+      dy: (src.y || 0) - minY,
+      width: src.width,
+      height: src.height,
+      radius: src.radius,
+      sizeX: src.sizeX,
+      sizeY: src.sizeY,
+      color: src.color,
+      intensity: src.intensity,
+      feather: src.feather,
+      falloffK: src.falloffK,
+      opacity: src.opacity,
+      rotation: src.rotation,
+      rotationDeg: src.rotationDeg,
+      startSec: src.startSec,
+      durationSec: src.durationSec,
+      blendMode: src.blendMode,
+      role: src.role,
+    })),
   };
 }
 
 function pasteLightFromClipboard() {
-  if (!lightClipboard) return;
-  const src = lightClipboard;
+  if (!lightClipboard || !Array.isArray(lightClipboard.items)) return;
+  const items = lightClipboard.items;
+  if (!items.length) return;
   const canvasW = Math.max(1, (p5Sketch && p5Sketch.width) || 1);
   const canvasH = Math.max(1, (p5Sketch && p5Sketch.height) || 1);
-  const offset = 30;
-  const x = Math.max(0, Math.min(canvasW, (src.x || canvasW / 2) + offset));
-  const y = Math.max(0, Math.min(canvasH, (src.y || canvasH / 2) + offset));
-  const id = "light-" + Math.random().toString(36).slice(2, 10);
-  const base = {
-    id,
-    type: normalizeLayerType(src.type) || TYPE_LIGHT,
-    shape: src.shape || "circle",
-    x,
-    y,
-    color: safeHex(src.color, "#ffffff"),
-    intensity: src.intensity,
-    feather: src.feather,
-    falloffK: src.falloffK,
-    opacity: src.opacity,
-    rotation: src.rotation,
-    rotationDeg: src.rotationDeg,
-    startSec: src.startSec,
-    durationSec: src.durationSec,
-    blendMode: src.blendMode,
-  };
-  applyFilterDefaultBlack(base, base.type);
-  base.colorRawLinear = hexToLinearRgb(base.color);
-  base.colorTintLinear = hexToTintLinearRgb(base.color);
-  base._colorHexCache = base.color;
-  let light;
-  if (base.shape === "rect") {
-    light = {
-      ...base,
-      width: Math.max(10, src.width || 220),
-      height: Math.max(10, src.height || 160),
+  const originX = Math.max(0, Math.min(canvasW, 30));
+  const originY = Math.max(0, Math.min(canvasH, 30));
+  const newIds = [];
+  items.forEach((src) => {
+    const id = "light-" + Math.random().toString(36).slice(2, 10);
+    const baseX = originX + (src.dx || 0);
+    const baseY = originY + (src.dy || 0);
+    const base = {
+      id,
+      type: normalizeLayerType(src.type) || TYPE_LIGHT,
+      shape: src.shape || "circle",
+      x: baseX,
+      y: baseY,
+      color: safeHex(src.color, "#ffffff"),
+      intensity: src.intensity,
+      feather: src.feather,
+      falloffK: src.falloffK,
+      opacity: src.opacity,
+      rotation: src.rotation,
+      rotationDeg: src.rotationDeg,
+      startSec: src.startSec,
+      durationSec: src.durationSec,
+      blendMode: src.blendMode,
     };
-  } else {
-    light = {
-      ...base,
-      radius: Math.max(10, src.radius || 150),
-      sizeX: src.sizeX || 1.0,
-      sizeY: src.sizeY || 1.0,
-    };
+    applyFilterDefaultBlack(base, base.type);
+    base.colorRawLinear = hexToLinearRgb(base.color);
+    base.colorTintLinear = hexToTintLinearRgb(base.color);
+    base._colorHexCache = base.color;
+    let light;
+    if (base.shape === "rect") {
+      light = {
+        ...base,
+        width: Math.max(10, src.width || 220),
+        height: Math.max(10, src.height || 160),
+      };
+    } else {
+      light = {
+        ...base,
+        radius: Math.max(10, src.radius || 150),
+        sizeX: src.sizeX || 1.0,
+        sizeY: src.sizeY || 1.0,
+      };
+    }
+    appState.lights.push(light);
+    newIds.push(light.id);
+  });
+  if (newIds.length) {
+    applySelection(newIds, newIds[newIds.length - 1]);
+    emitSelectionChange();
+    dispatchLightsChanged();
   }
-  appState.lights.push(light);
-  appState.selectedLightId = light.id;
-  emitSelectionChange();
-  dispatchLightsChanged();
 }
 
 // ======== Color helpers (sRGB -> Linear) ========
