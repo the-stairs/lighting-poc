@@ -1396,6 +1396,7 @@ window.app = {
   setEditTarget,
   setMode,
   triggerShoot,
+  resetAllDisplaysToDefault,
   exportPreset: (exportOptions) => exportPresetData(exportOptions),
   importPreset: (presetObj, importOptions) =>
     applyPreset(presetObj, importOptions),

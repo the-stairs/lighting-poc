@@ -40,10 +40,20 @@ body {
   text-align: center;
   padding: 2rem;
 }
+.nav-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
 .nav-title {
-  margin: 0 0 0.5rem 0;
+  margin: 0;
   font-size: 1.75rem;
   font-weight: 600;
+}
+.nav-title-row .nav-title {
+  margin: 0;
 }
 .nav-desc {
   margin: 0 0 2rem 0;
@@ -119,6 +129,17 @@ body {
   display: none; /* Chrome, Safari, Edge(Chromium) */
 }
 
+.panel-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 28px;
+}
+.panel-title-row h1 {
+  margin: 0;
+  font-size: 24px;
+}
 .panel h1 {
   margin: 0 0 28px 0;
   font-size: 24px;
