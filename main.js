@@ -1,5 +1,5 @@
 /* p5.js sketch and WebGL shader-based light rendering */
-import "./supabase.js";
+import { connectSyncRelay } from "./syncRelay.js";
 import p5 from "p5";
 
 let p5Sketch;
@@ -154,9 +154,8 @@ const REALTIME_CHANNEL_NAME =
   typeof import.meta !== "undefined" && import.meta.env && import.meta.env.DEV
     ? "poc-light-sync-dev"
     : "poc-light-sync";
-const REALTIME_EVENT = "message";
 const SYNC_DEBOUNCE_MS = 280;
-let realtimeChannel = null;
+let syncRelayConn = null;
 let syncToDisplayTimeout = null;
 
 /** 컨트롤러에서 디스플레이별로 기억해 둔 상태 (targetId -> snapshot) */
@@ -167,54 +166,133 @@ function getDisplayTargetId() {
   return el ? el.value || "1" : "1";
 }
 
+function getSyncWsBaseUrl() {
+  if (typeof window !== "undefined" && window.SYNC_WS_URL) {
+    const u = String(window.SYNC_WS_URL).trim();
+    if (u) {
+      return u;
+    }
+  }
+  if (
+    typeof import.meta !== "undefined" &&
+    import.meta.env &&
+    import.meta.env.VITE_SYNC_WS_URL
+  ) {
+    const u = String(import.meta.env.VITE_SYNC_WS_URL).trim();
+    if (u) {
+      return u;
+    }
+  }
+  return "";
+}
+
+function buildRelayWsUrl(baseUrl, roomName) {
+  try {
+    const u = new URL(baseUrl);
+    u.searchParams.set("room", roomName);
+    return u.toString();
+  } catch (_e) {
+    const sep = baseUrl.includes("?") ? "&" : "?";
+    return baseUrl + sep + "room=" + encodeURIComponent(roomName);
+  }
+}
+
+function respondLiveStateRequest(sendFn, body) {
+  const targetId = body.targetId || "all";
+  const existing = displayStateMap[targetId];
+  const snap = existing || getDefaultPreset();
+  displayStateMap[targetId] = snap;
+  sendFn({ type: "LIVE_STATE", targetId: targetId, payload: snap });
+}
+
+function applyDisplayRelayBody(body) {
+  const targetId = body.targetId;
+  if (
+    targetId !== "all" &&
+    String(targetId) !== String(appConfig.displayId)
+  ) {
+    return;
+  }
+  if (body.type === "LIVE_STATE") {
+    applyPresetToState(displayState, body.payload || {});
+    return;
+  }
+  if (body.type === "MODE_CHANGE") {
+    if (body.mode === MODE_EDIT || body.mode === MODE_SHOOT) {
+      currentMode = body.mode;
+      shootPlaying = false;
+    }
+    return;
+  }
+  if (body.type !== "SHOOT_TRIGGER") {
+    return;
+  }
+  if (body.mode === MODE_SHOOT) {
+    currentMode = MODE_SHOOT;
+  }
+  if (typeof body.startUnixMs === "number") {
+    shootStartUnixMs = body.startUnixMs;
+  }
+  shootElapsedSec = 0;
+  shootLastPerfMs = null;
+  shootPlaying = true;
+}
+
+function handleRelayPayload(sendFn, body) {
+  if (!body || typeof body.type !== "string") {
+    return;
+  }
+  if (appConfig.role === "control" && body.type === "REQUEST_LIVE") {
+    respondLiveStateRequest(sendFn, body);
+    return;
+  }
+  if (appConfig.role === "display") {
+    applyDisplayRelayBody(body);
+  }
+}
+
 function broadcastSnapshotToTarget(snapshot, targetId) {
-  if (appConfig.role !== "control" || !realtimeChannel) return;
+  if (appConfig.role !== "control" || !syncRelayConn) {
+    return;
+  }
   displayStateMap[targetId] = snapshot;
-  realtimeChannel
-    .send({
-      type: "broadcast",
-      event: REALTIME_EVENT,
-      payload: { type: "LIVE_STATE", targetId: targetId, payload: snapshot },
-    })
-    .catch(function (err) {
-      console.warn("[realtime] broadcast failed", err);
-    });
+  syncRelayConn.send({
+    type: "LIVE_STATE",
+    targetId: targetId,
+    payload: snapshot,
+  });
 }
 
 function broadcastState() {
-  if (appConfig.role !== "control") return;
-  const client = window.supabaseClient;
-  if (!client) return;
+  if (appConfig.role !== "control" || !syncRelayConn) {
+    return;
+  }
   const targetId = getDisplayTargetId();
   const payload = serializePreset();
   broadcastSnapshotToTarget(payload, targetId);
 }
 
 function broadcastModeChange() {
-  if (appConfig.role !== "control" || !realtimeChannel) return;
-  realtimeChannel
-    .send({
-      type: "broadcast",
-      event: REALTIME_EVENT,
-      payload: { type: "MODE_CHANGE", targetId: "all", mode: currentMode },
-    })
-    .catch(function () {});
+  if (appConfig.role !== "control" || !syncRelayConn) {
+    return;
+  }
+  syncRelayConn.send({
+    type: "MODE_CHANGE",
+    targetId: "all",
+    mode: currentMode,
+  });
 }
 
 function broadcastShootTrigger() {
-  if (appConfig.role !== "control" || !realtimeChannel) return;
-  realtimeChannel
-    .send({
-      type: "broadcast",
-      event: REALTIME_EVENT,
-      payload: {
-        type: "SHOOT_TRIGGER",
-        targetId: "all",
-        mode: currentMode,
-        startUnixMs: shootStartUnixMs,
-      },
-    })
-    .catch(function () {});
+  if (appConfig.role !== "control" || !syncRelayConn) {
+    return;
+  }
+  syncRelayConn.send({
+    type: "SHOOT_TRIGGER",
+    targetId: "all",
+    mode: currentMode,
+    startUnixMs: shootStartUnixMs,
+  });
 }
 
 function scheduleSyncToDisplay() {
@@ -248,80 +326,26 @@ function setEditTarget(targetId) {
 }
 
 function initRealtime() {
-  const client = window.supabaseClient;
-  if (!client) return;
-
-  realtimeChannel = client.channel(REALTIME_CHANNEL_NAME);
-
-  realtimeChannel.on("broadcast", { event: REALTIME_EVENT }, function (event) {
-    const body = event && event.payload;
-    if (!body || typeof body.type !== "string") return;
-
-    if (appConfig.role === "control" && body.type === "REQUEST_LIVE") {
-      const targetId = body.targetId || "all";
-      // 디스플레이별로 이미 저장된 스냅샷이 있으면 그것을 우선 사용하고,
-      // 없으면 기본 프리셋으로 응답한다. (현재 편집 중인 다른 디스플레이 상태로 덮어쓰지 않기 위함)
-      const existing = displayStateMap[targetId];
-      const snap = existing || getDefaultPreset();
-      displayStateMap[targetId] = snap;
-      realtimeChannel
-        .send({
-          type: "broadcast",
-          event: REALTIME_EVENT,
-          payload: { type: "LIVE_STATE", targetId: targetId, payload: snap },
-        })
-        .catch(function (e) {
-          console.warn("[realtime] send failed", e);
-        });
-      return;
-    }
-
-    if (appConfig.role === "display") {
-      const targetId = body.targetId;
-      if (
-        targetId !== "all" &&
-        String(targetId) !== String(appConfig.displayId)
-      )
-        return;
-      if (body.type === "LIVE_STATE") {
-        applyPresetToState(displayState, body.payload || {});
+  const base = getSyncWsBaseUrl();
+  if (!base) {
+    console.warn(
+      "[sync] 릴레이 URL 없음. VITE_SYNC_WS_URL 또는 window.SYNC_WS_URL 을 설정하세요."
+    );
+    return;
+  }
+  const url = buildRelayWsUrl(base, REALTIME_CHANNEL_NAME);
+  syncRelayConn = connectSyncRelay({
+    url,
+    onSocketOpen: function (send) {
+      if (appConfig.role !== "display") {
         return;
       }
-      if (body.type === "MODE_CHANGE") {
-        if (body.mode === MODE_EDIT || body.mode === MODE_SHOOT) {
-          currentMode = body.mode;
-          shootPlaying = false;
-        }
-        return;
-      }
-      if (body.type === "SHOOT_TRIGGER") {
-        if (body.mode === MODE_SHOOT) {
-          currentMode = MODE_SHOOT;
-        }
-        if (typeof body.startUnixMs === "number") {
-          shootStartUnixMs = body.startUnixMs;
-        }
-        shootElapsedSec = 0;
-        shootLastPerfMs = null;
-        shootPlaying = true;
-        return;
-      }
-    }
-  });
-
-  realtimeChannel.subscribe(function (status) {
-    if (status === "SUBSCRIBED" && appConfig.role === "display") {
-      realtimeChannel
-        .send({
-          type: "broadcast",
-          event: REALTIME_EVENT,
-          payload: {
-            type: "REQUEST_LIVE",
-            targetId: appConfig.displayId || "all",
-          },
-        })
-        .catch(function () {});
-    }
+      send({
+        type: "REQUEST_LIVE",
+        targetId: appConfig.displayId || "all",
+      });
+    },
+    onPayload: handleRelayPayload,
   });
 }
 
