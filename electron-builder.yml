@@ -6,7 +6,7 @@ directories:
   buildResources: build
 files:
   - dist/**
-  - electron/**
+  - src/main/**
   - package.json
 asar: true
 mac:

@@ -1,6 +1,6 @@
 "use strict";
 
-const { startRelayServer } = require("../relay/server");
+const { startRelayServer } = require("./relay/server");
 
 const DEFAULT_PORT = 8787;
 

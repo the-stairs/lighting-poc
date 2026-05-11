@@ -167,23 +167,11 @@ function getDisplayTargetId() {
 }
 
 function getSyncWsBaseUrl() {
-  if (typeof window !== "undefined" && window.SYNC_WS_URL) {
-    const u = String(window.SYNC_WS_URL).trim();
-    if (u) {
-      return u;
-    }
+  if (typeof window === "undefined" || !window.SYNC_WS_URL) {
+    return "";
   }
-  if (
-    typeof import.meta !== "undefined" &&
-    import.meta.env &&
-    import.meta.env.VITE_SYNC_WS_URL
-  ) {
-    const u = String(import.meta.env.VITE_SYNC_WS_URL).trim();
-    if (u) {
-      return u;
-    }
-  }
-  return "";
+  const u = String(window.SYNC_WS_URL).trim();
+  return u || "";
 }
 
 function buildRelayWsUrl(baseUrl, roomName) {
@@ -329,7 +317,7 @@ function initRealtime() {
   const base = getSyncWsBaseUrl();
   if (!base) {
     console.warn(
-      "[sync] 릴레이 URL 없음. VITE_SYNC_WS_URL 또는 window.SYNC_WS_URL 을 설정하세요."
+      "[sync] 릴레이 URL 없음. Electron preload가 window.SYNC_WS_URL 을 주입했는지 확인하세요."
     );
     return;
   }

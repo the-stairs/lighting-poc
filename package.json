@@ -1,14 +1,12 @@
 {
   "name": "lighting-poc",
   "version": "1.0.0",
-  "main": "electron/main.js",
+  "main": "src/main/index.js",
   "scripts": {
     "dev": "concurrently -k \"npm:dev:renderer\" \"npm:dev:electron\"",
     "dev:renderer": "vite",
     "dev:electron": "wait-on http://127.0.0.1:5173 && cross-env ELECTRON_DEV=1 ELECTRON_RUN_AS_NODE= electron .",
     "build": "vite build",
-    "preview": "vite preview",
-    "relay": "node relay/index.js",
     "electron": "cross-env ELECTRON_RUN_AS_NODE= electron .",
     "dist": "npm run build && electron-builder --config electron-builder.yml",
     "dist:mac": "npm run build && electron-builder --mac --config electron-builder.yml",

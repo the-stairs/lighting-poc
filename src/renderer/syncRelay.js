@@ -1,5 +1,5 @@
 /**
- * 내부 WebSocket 릴레이 클라이언트. VITE_SYNC_WS_URL / window.SYNC_WS_URL 과 함께 사용합니다.
+ * Electron 내장 릴레이 WebSocket 클라이언트. window.SYNC_WS_URL 로 접속합니다.
  */
 const WS_OPEN = 1;
 
