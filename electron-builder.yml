@@ -9,6 +9,10 @@ files:
   - src/main/**
   - package.json
 asar: true
+publish:
+  provider: github
+  owner: the-stairs
+  repo: lighting-poc
 mac:
   category: public.app-category.graphics-design
   target:

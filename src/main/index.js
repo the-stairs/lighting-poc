@@ -9,6 +9,7 @@ const { app, BrowserWindow, ipcMain } = require("electron");
 const { startEmbeddedRelay, getRelayWsUrl } = require("./relayHost");
 const { createStaticServer } = require("./staticServer");
 const { createWindowManager } = require("./windowManager");
+const { initAutoUpdater } = require("./autoUpdater");
 
 let relayServer = null;
 let staticServer = null;
@@ -87,6 +88,7 @@ async function shutdown() {
 app.whenReady().then(async function () {
   registerIpcHandlers();
   await createAppWindows();
+  initAutoUpdater();
 });
 
 // Windows/Linux: 모든 창이 닫히면 앱 종료. macOS는 독 아이콘 유지.
