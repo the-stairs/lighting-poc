@@ -354,7 +354,11 @@ function initP5Sketch() {
     p5Sketch = p;
 
     p.preload = function () {
-      glShader = p.loadShader("/shader.vert", "/shader.frag");
+      const shaderBase = import.meta.env.BASE_URL || "/";
+      glShader = p.loadShader(
+        `${shaderBase}shader.vert`,
+        `${shaderBase}shader.frag`
+      );
     };
 
     p.setup = function () {

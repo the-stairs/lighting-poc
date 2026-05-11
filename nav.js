@@ -3,7 +3,8 @@
   const role = params.get("role");
   const nav = document.getElementById("nav-page");
   const app = document.getElementById("app-page");
-  if (role === "control" || role === "display") {
+  const isElectron = Boolean(window.electronAPI && window.electronAPI.isElectron);
+  if (role === "control" || role === "display" || isElectron) {
     if (nav) nav.hidden = true;
     if (app) app.hidden = false;
   } else {

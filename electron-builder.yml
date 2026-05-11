@@ -1,0 +1,25 @@
+appId: com.thestairs.lighting-poc
+productName: Lighting POC
+buildVersion: 1.0.0
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**
+  - electron/**
+  - package.json
+asar: true
+mac:
+  category: public.app-category.graphics-design
+  target:
+    - dmg
+    - zip
+win:
+  target:
+    - nsis
+    - portable
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Graphics
