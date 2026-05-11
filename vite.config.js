@@ -13,7 +13,4 @@ export default defineConfig({
     outDir: path.join(rootDir, "dist"),
     emptyOutDir: true,
   },
-  server: {
-    port: 5173,
-  },
 });

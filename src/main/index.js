@@ -10,10 +10,6 @@ const { startEmbeddedRelay, getRelayWsUrl } = require("./relayHost");
 const { createStaticServer } = require("./staticServer");
 const { createWindowManager } = require("./windowManager");
 
-// 개발: Vite dev server. 프로덕션: dist 정적 서버 origin.
-const DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL || "http://127.0.0.1:5173";
-const IS_DEV = process.env.ELECTRON_DEV === "1";
-
 let relayServer = null;
 let staticServer = null;
 let windowManager = null;
@@ -25,11 +21,8 @@ function setSyncEnv(syncWsUrl) {
   process.env.LIGHTING_SYNC_WS_URL = syncWsUrl;
 }
 
-/** 각 BrowserWindow가 로드할 렌더러 베이스 URL */
+/** dist/를 로컬 HTTP로 서빙한 origin — 모든 창이 여기서 렌더러를 로드 */
 async function resolveRendererOrigin() {
-  if (IS_DEV) {
-    return DEV_SERVER_URL;
-  }
   const distDir = path.join(__dirname, "..", "..", "dist");
   staticServer = await createStaticServer(distDir);
   return staticServer.origin;
