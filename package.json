@@ -2,6 +2,9 @@
   "name": "lighting-poc",
   "version": "1.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=24.15.0 <25"
+  },
   "main": "src/main/index.js",
   "scripts": {
     "dev": "npm run build && npm run start",
@@ -15,7 +18,7 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "electron-updater": "^6.6.2",
+    "electron-updater": "^6.8.3",
     "p5": "^1.9.2",
     "ws": "^8.18.0"
   },
@@ -32,8 +35,8 @@
   "homepage": "https://github.com/the-stairs/lighting-poc#readme",
   "description": "Lighting POC desktop app",
   "devDependencies": {
-    "electron": "^35.7.5",
-    "electron-builder": "^26.0.12",
+    "electron": "^42.0.1",
+    "electron-builder": "^26.8.1",
     "vite": "^7.3.1"
   }
 }
