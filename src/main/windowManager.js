@@ -26,18 +26,37 @@ function readDisplayMapping(userDataPath) {
   return {};
 }
 
-/** 매핑 파일이 없으면 displayId 1→첫 모니터, 2→둘째… 순으로 붙입니다 */
+function getPrimaryDisplayId() {
+  return screen.getPrimaryDisplay().id;
+}
+
+function listOutputDisplays() {
+  const primaryId = getPrimaryDisplayId();
+  return screen.getAllDisplays().filter(function (display) {
+    return display.id !== primaryId;
+  });
+}
+
+/** 매핑이 없으면 displayId 1→주 모니터 제외 첫 모니터, 2→둘째… 순으로 붙입니다 */
 function getScreenForDisplayId(displayId, mapping) {
   const displays = screen.getAllDisplays();
-  if (!displays.length) {
+  const outputDisplays = listOutputDisplays();
+  if (!outputDisplays.length) {
     return null;
   }
+  const primaryId = getPrimaryDisplayId();
   const mappedIndex = Number(mapping[displayId]);
   if (Number.isInteger(mappedIndex) && displays[mappedIndex]) {
-    return displays[mappedIndex];
+    const mapped = displays[mappedIndex];
+    if (mapped.id !== primaryId) {
+      return mapped;
+    }
   }
   const fallbackIndex = Math.max(0, Number(displayId) - 1);
-  return displays[fallbackIndex] || displays[displays.length - 1];
+  return (
+    outputDisplays[fallbackIndex] ||
+    outputDisplays[outputDisplays.length - 1]
+  );
 }
 
 /** 렌더러 베이스 URL에 role·displayId 쿼리를 붙입니다 */
@@ -134,10 +153,10 @@ export function createWindowManager(options) {
     return win;
   }
 
-  /** 연결 모니터 수와 6 중 작은 만큼 displayId 1부터 창 생성 */
+  /** 주 모니터를 제외한 연결 모니터 수와 6 중 작은 만큼 displayId 1부터 창 생성 */
   function openAllDisplays() {
-    const displays = screen.getAllDisplays();
-    const maxDisplays = Math.min(DISPLAY_IDS.length, displays.length);
+    const outputDisplays = listOutputDisplays();
+    const maxDisplays = Math.min(DISPLAY_IDS.length, outputDisplays.length);
     for (let i = 0; i < maxDisplays; i += 1) {
       const displayId = DISPLAY_IDS[i];
       if (!windows.displays.has(displayId)) {
@@ -146,6 +165,7 @@ export function createWindowManager(options) {
     }
   }
 
+  /** 모든 디스플레이 창 닫기 */
   function closeAllDisplays() {
     for (const win of windows.displays.values()) {
       if (!win.isDestroyed()) {
@@ -161,6 +181,7 @@ export function createWindowManager(options) {
     openAllDisplays();
   }
 
+  /** 디스플레이 창 전체화면 토글 */
   function toggleDisplayFullscreen(displayId) {
     const win = windows.displays.get(String(displayId));
     if (!win || win.isDestroyed()) {
