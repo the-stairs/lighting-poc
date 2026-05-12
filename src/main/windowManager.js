@@ -2,12 +2,12 @@
  * 컨트롤·디스플레이 BrowserWindow 생성·배치·종료.
  * 논리 displayId(1~6)를 OS 모니터에 매핑하고, role 쿼리로 같은 렌더러를 역할별로 로드합니다.
  */
-"use strict";
+import path from "node:path";
+import fs from "node:fs";
+import { fileURLToPath } from "node:url";
+import { BrowserWindow, screen } from "electron";
 
-const path = require("path");
-const fs = require("fs");
-const { BrowserWindow, screen } = require("electron");
-
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DISPLAY_IDS = ["1", "2", "3", "4", "5", "6"];
 const PRELOAD_PATH = path.join(__dirname, "preload.js");
 
@@ -57,7 +57,7 @@ function buildRoleUrl(origin, role, displayId) {
  * @param {string} options.syncWsUrl
  * @param {boolean} [options.displayFullscreen]
  */
-function createWindowManager(options) {
+export function createWindowManager(options) {
   const windows = {
     control: null,
     displays: new Map(),
@@ -189,7 +189,4 @@ function createWindowManager(options) {
   };
 }
 
-module.exports = {
-  DISPLAY_IDS,
-  createWindowManager,
-};
+export { DISPLAY_IDS };

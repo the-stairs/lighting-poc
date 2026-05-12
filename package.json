@@ -1,6 +1,7 @@
 {
   "name": "lighting-poc",
   "version": "1.0.0",
+  "type": "module",
   "main": "src/main/index.js",
   "scripts": {
     "dev": "npm run build && npm run start",

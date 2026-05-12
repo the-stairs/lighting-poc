@@ -1,10 +1,7 @@
-"use strict";
-
-const { WebSocketServer } = require("ws");
-const { URL } = require("url");
+import { WebSocketServer } from "ws";
 
 const MAX_PAYLOAD_BYTES = 512 * 1024;
-const DEFAULT_ROOM = "poc-light-sync";
+export const DEFAULT_ROOM = "poc-light-sync";
 
 /** @type {Map<string, Set<import('ws').WebSocket>>} */
 const rooms = new Map();
@@ -78,7 +75,7 @@ function attachRelayHandlers(wss) {
   });
 }
 
-function startRelayServer(options) {
+export function startRelayServer(options) {
   const host = options && options.host ? options.host : "127.0.0.1";
   const port = options && options.port ? options.port : 0;
   const wss = new WebSocketServer({ port, host });
@@ -112,8 +109,3 @@ function startRelayServer(options) {
     wss.on("error", reject);
   });
 }
-
-module.exports = {
-  startRelayServer,
-  DEFAULT_ROOM,
-};

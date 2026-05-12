@@ -2,14 +2,15 @@
  * Electron 메인 프로세스 엔트리.
  * 내장 릴레이 기동 → 렌더러 URL 결정 → 컨트롤·디스플레이 창 생성 순으로 앱을 올립니다.
  */
-"use strict";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { app, BrowserWindow, ipcMain } from "electron";
+import { startEmbeddedRelay, getRelayWsUrl } from "./relayHost.js";
+import { createStaticServer } from "./staticServer.js";
+import { createWindowManager } from "./windowManager.js";
+import { initAutoUpdater } from "./autoUpdater.js";
 
-const path = require("path");
-const { app, BrowserWindow, ipcMain } = require("electron");
-const { startEmbeddedRelay, getRelayWsUrl } = require("./relayHost");
-const { createStaticServer } = require("./staticServer");
-const { createWindowManager } = require("./windowManager");
-const { initAutoUpdater } = require("./autoUpdater");
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 let relayServer = null;
 let staticServer = null;

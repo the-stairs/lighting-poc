@@ -1,6 +1,4 @@
-"use strict";
-
-const { contextBridge, ipcRenderer } = require("electron");
+import { contextBridge, ipcRenderer } from "electron";
 
 function readSyncWsUrl() {
   const fromEnv = process.env.LIGHTING_SYNC_WS_URL;

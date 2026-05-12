@@ -1,8 +1,6 @@
-"use strict";
-
-const http = require("http");
-const fs = require("fs");
-const path = require("path");
+import http from "node:http";
+import fs from "node:fs";
+import path from "node:path";
 
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -35,7 +33,7 @@ function resolveDistPath(rootDir, requestPath) {
   return absolute;
 }
 
-function createStaticServer(rootDir) {
+export function createStaticServer(rootDir) {
   const distRoot = path.resolve(rootDir);
 
   return new Promise(function (resolve, reject) {
@@ -91,6 +89,3 @@ function createStaticServer(rootDir) {
   });
 }
 
-module.exports = {
-  createStaticServer,
-};

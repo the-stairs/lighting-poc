@@ -1,7 +1,5 @@
-"use strict";
-
-const { app, dialog } = require("electron");
-const { autoUpdater } = require("electron-updater");
+import { app, dialog } from "electron";
+import { autoUpdater } from "electron-updater";
 
 function logUpdate(message) {
   console.log("[update]", message);
@@ -29,7 +27,7 @@ function bindUpdaterEvents() {
   });
 }
 
-function initAutoUpdater() {
+export function initAutoUpdater() {
   if (!app.isPackaged) {
     return;
   }
@@ -39,7 +37,3 @@ function initAutoUpdater() {
     logUpdate(String(err && err.message ? err.message : err));
   });
 }
-
-module.exports = {
-  initAutoUpdater,
-};

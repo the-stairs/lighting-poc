@@ -1,6 +1,5 @@
-"use strict";
-
-const { spawn } = require("child_process");
+import { spawn } from "node:child_process";
+import electron from "electron";
 
 function createElectronEnv() {
   const env = { ...process.env };
@@ -9,7 +8,7 @@ function createElectronEnv() {
 }
 
 function runElectron() {
-  const child = spawn(require("electron"), ["."], {
+  const child = spawn(electron, ["."], {
     env: createElectronEnv(),
     stdio: "inherit",
     windowsHide: false,
