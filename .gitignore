@@ -26,6 +26,3 @@ Thumbs.db
 npm-debug.log*
 .npm/
 .cache/
-
-# ========== 기타 ==========
-package-lock.json
