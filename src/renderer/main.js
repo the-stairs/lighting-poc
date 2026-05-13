@@ -816,6 +816,14 @@ function initP5Sketch() {
           l.y = newAnchorY + info.dy;
         });
       }
+      const cw = p5Sketch.width;
+      const ch = p5Sketch.height;
+      ids.forEach((id) => {
+        const moved = appState.lights.find((x) => x.id === id);
+        if (moved) {
+          clampLightCenterToCanvas(moved, cw, ch);
+        }
+      });
       dispatchLightsChanged();
       scheduleSyncToDisplay();
     };
@@ -1570,6 +1578,9 @@ function updateSelectedLight(props) {
       l.blendMode = typeToBlendMode(inferredType);
     }
   }
+  if (p5Sketch) {
+    clampLightCenterToCanvas(l, p5Sketch.width, p5Sketch.height);
+  }
   scheduleSyncToDisplay();
 }
 
@@ -1678,6 +1689,16 @@ function clamp(v, lo, hi, fallback) {
   return Math.max(lo, Math.min(hi, n));
 }
 
+function clampLightCenterToCanvas(light, canvasW, canvasH) {
+  if (!light) {
+    return;
+  }
+  const w = Math.max(1, canvasW);
+  const h = Math.max(1, canvasH);
+  light.x = clamp(light.x, 0, w, w / 2);
+  light.y = clamp(light.y, 0, h, h / 2);
+}
+
 function resolveLayerType(raw) {
   const direct = normalizeLayerType(raw.type);
   if (direct) return direct;
@@ -1737,8 +1758,8 @@ function sanitizeLight(raw) {
   const base = {
     id,
     shape,
-    x: clamp(rawX, 0, canvasW, canvasW / 2),
-    y: clamp(rawY, 0, canvasH, canvasH / 2),
+    x: Number.isFinite(Number(rawX)) ? Number(rawX) : canvasW / 2,
+    y: Number.isFinite(Number(rawY)) ? Number(rawY) : canvasH / 2,
     color: safeHex(raw.color, "#ffffff"),
     intensity: clamp(raw.intensity, 0, INTENSITY_MAX, 400),
     feather: clamp(raw.feather, 0, FEATHER_UI_MAX, 150),
@@ -1750,6 +1771,7 @@ function sanitizeLight(raw) {
     type: layerType,
     blendMode: typeToBlendMode(layerType),
   };
+  clampLightCenterToCanvas(base, canvasW, canvasH);
 
   if (shape === "rect") {
     // 크기: 정규화 폭/높이(nWidth, nHeight)가 있으면 우선 사용
