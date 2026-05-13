@@ -1,5 +1,5 @@
 :root {
-  --panel-width: 400px;
+  --panel-width: 320px;
   --bg: #111;
   --text: #e6e6e6;
   --muted: #9aa0a6;
@@ -20,8 +20,15 @@ body {
   display: flex;
   background: #000;
   color: var(--text);
-  font: 18px/1.6 system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, Arial,
-    Apple Color Emoji, Segoe UI Emoji;
+  font:
+    18px/1.6 system-ui,
+    -apple-system,
+    Segoe UI,
+    Roboto,
+    Noto Sans,
+    Arial,
+    Apple Color Emoji,
+    Segoe UI Emoji;
 }
 
 /* 루트 네비게이션 페이지 */
@@ -77,7 +84,9 @@ body {
   color: var(--text);
   text-decoration: none;
   font-size: 1.05rem;
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
 .nav-link:hover {
   background: #252525;
@@ -106,6 +115,7 @@ body {
 
 .panel {
   position: fixed;
+  box-sizing: border-box;
   top: 0;
   left: 0;
   height: 100vh;
@@ -115,26 +125,67 @@ body {
   background: var(--surface);
   border-right: 2px solid #3a3a3a;
   box-shadow: 4px 0 16px rgba(0, 0, 0, 0.7);
-  border-radius: 0 12px 12px 0; /* 캔버스 쪽(오른쪽)만 둥글게 */
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   transform: translateX(0);
   transition: transform 180ms ease;
   pointer-events: auto;
 }
 
-/* 패널 스크롤바 감추기 (내용은 스크롤 가능) */
-.panel {
-  scrollbar-width: none; /* Firefox */
+.panel-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
 }
-.panel::-webkit-scrollbar {
-  display: none; /* Chrome, Safari, Edge(Chromium) */
+.panel-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.panel-bottom-bar {
+  flex-shrink: 0;
+  padding-top: 12px;
+  margin-top: 4px;
+  border-top: 1px solid #333;
+}
+.panel-reset-btn {
+  width: 100%;
+  justify-content: center;
+}
+
+/* Lucide: Heroicons-like outline weight (24px grid, stroke 1.5) */
+svg.lucide {
+  flex-shrink: 0;
+  stroke: currentColor;
+}
+.hi-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  display: inline-block;
+  vertical-align: middle;
+}
+.hi-icon--compact {
+  width: 1rem;
+  height: 1rem;
+}
+.btn-with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.panel summary .hi-icon,
+.shoot-controls .hi-icon {
+  width: 1.125rem;
+  height: 1.125rem;
 }
 
 .panel-title-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 0.75rem;
+  flex-shrink: 0;
   margin-bottom: 28px;
 }
 .panel-title-row h1 {
@@ -142,7 +193,7 @@ body {
   font-size: 24px;
 }
 .panel h1 {
-  margin: 0 0 28px 0;
+  margin: 0;
   font-size: 24px;
 }
 .panel h2 {
@@ -191,6 +242,19 @@ details.group > summary + * {
   gap: 8px;
   margin-top: 10px;
   margin-bottom: 10px;
+}
+.timer-fields-row {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.timer-fields-row > label.grow {
+  min-width: 0;
+  flex: 1 1 0;
+}
+.timer-fields-row input[type="number"] {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 .col {
   display: flex;
@@ -252,11 +316,17 @@ details.group > summary + * {
   min-width: 54px;
 }
 .layer-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 2px 6px;
   font-size: 12px;
   line-height: 1.2;
 }
 .layer-visibility {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 2px 6px;
   font-size: 12px;
   line-height: 1.2;
@@ -281,6 +351,48 @@ details.group > summary + * {
 
 .bg-palette {
   margin-left: 12px;
+}
+
+.light-color-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.light-color-layout-label {
+  display: block;
+  color: var(--muted);
+  font-size: 16px;
+  margin: 0;
+}
+.light-color-layout-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+.light-color-layout-inputs {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.light-color-field {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.light-color-field input[type="color"] {
+  width: 2.75rem;
+  height: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0;
+  border: 1px solid #333;
+  border-radius: 6px;
+  background: #111;
+  cursor: pointer;
+}
+.light-color-field input[type="color"]:disabled {
+  cursor: not-allowed;
+  opacity: 0.85;
 }
 
 label span {
@@ -621,5 +733,4 @@ body.panel-right .panel {
   border-right: none;
   border-left: 2px solid #3a3a3a;
   box-shadow: -4px 0 16px rgba(0, 0, 0, 0.7);
-  border-radius: 12px 0 0 12px; /* 캔버스 쪽(왼쪽)만 둥글게 */
 }

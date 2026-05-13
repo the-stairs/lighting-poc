@@ -1,5 +1,22 @@
 /* Panel UI bindings and events */
 
+import { createIcons, icons } from "lucide";
+
+const LUCIDE_ATTRS = { "stroke-width": 1.5, class: ["hi-icon"] };
+
+function refreshPanelIcons() {
+  createIcons({ icons, attrs: LUCIDE_ATTRS });
+}
+
+function appendLucideIcon(el, name, extraClass) {
+  el.textContent = "";
+  const ic = document.createElement("i");
+  ic.setAttribute("data-lucide", name);
+  ic.setAttribute("aria-hidden", "true");
+  ic.className = extraClass ? `hi-icon ${extraClass}` : "hi-icon";
+  el.appendChild(ic);
+}
+
 function $(sel) {
   return document.querySelector(sel);
 }
@@ -55,7 +72,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const opacityValue = $("#opacityValue");
   const opacityMinus = $("#opacityMinus");
   const opacityPlus = $("#opacityPlus");
-  const opacityDebug = $("#opacityDebug");
   const angleSlider = $("#angleSlider");
   const angleValue = $("#angleValue");
   const angleMinus = $("#angleMinus");
@@ -647,9 +663,6 @@ document.addEventListener("DOMContentLoaded", () => {
         if (el) el.disabled = !finalEnabled;
       });
       if (noSel) noSel.style.display = finalEnabled ? "none" : "block";
-      if (!finalEnabled && opacityDebug) {
-        opacityDebug.textContent = "selected light opacity = --";
-      }
       if (!finalEnabled && falloffHint) {
         falloffHint.style.display = "none";
       }
@@ -833,11 +846,12 @@ document.addEventListener("DOMContentLoaded", () => {
         vis.className = "layer-visibility";
         const isHidden =
           typeof light.opacity === "number" && light.opacity <= 0.01;
-        vis.textContent = "👁";
+        appendLucideIcon(vis, isHidden ? "eye-off" : "eye", "hi-icon--compact");
         if (isHidden) {
           vis.classList.add("is-hidden");
           vis.title = "보이기";
         } else {
+          vis.classList.remove("is-hidden");
           vis.title = "숨기기";
         }
 
@@ -858,7 +872,7 @@ document.addEventListener("DOMContentLoaded", () => {
         del.type = "button";
         del.className = "layer-delete";
         del.dataset.action = "delete";
-        del.textContent = "🗑";
+        appendLucideIcon(del, "trash-2", "hi-icon--compact");
         del.title = "삭제";
 
         del.addEventListener("pointerdown", (e) => e.stopPropagation());
@@ -990,6 +1004,7 @@ document.addEventListener("DOMContentLoaded", () => {
         row.appendChild(del);
         layerList.appendChild(row);
       }
+      refreshPanelIcons();
     }
 
     function hideSelectionIndicator() {
@@ -1112,9 +1127,6 @@ document.addEventListener("DOMContentLoaded", () => {
       const op = clamp01(light.opacity, 1);
       opacitySlider.value = op.toFixed(2);
       opacityValue.textContent = op.toFixed(2);
-      if (opacityDebug) {
-        opacityDebug.textContent = `selected light opacity = ${op.toFixed(2)}`;
-      }
       const rotRad = Number.isFinite(light.rotation) ? light.rotation : 0;
       const rotDeg = Math.max(-180, Math.min(180, (rotRad * 180) / Math.PI));
       if (angleSlider) angleSlider.value = String(Math.round(rotDeg));
@@ -1230,11 +1242,6 @@ document.addEventListener("DOMContentLoaded", () => {
         opacitySlider.value = op.toFixed(2);
         if (opacityValue) opacityValue.textContent = op.toFixed(2);
         window.app.updateSelectedLight({ opacity: op });
-        if (opacityDebug) {
-          opacityDebug.textContent = `selected light opacity = ${op.toFixed(
-            2
-          )}`;
-        }
       });
     }
     if (angleSlider) {
@@ -1767,4 +1774,5 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   updateToggleButtonLabel();
   updateDockButtonLabel();
+  refreshPanelIcons();
 });
