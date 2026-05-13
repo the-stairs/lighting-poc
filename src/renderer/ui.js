@@ -4,6 +4,41 @@ import { createIcons, icons } from "lucide";
 
 const LUCIDE_ATTRS = { "stroke-width": 1.5, class: ["hi-icon"] };
 
+const PANEL_HOTKEY_ALLOWED_INPUT_TYPES = new Set([
+  "range",
+  "checkbox",
+  "radio",
+  "button",
+  "submit",
+  "reset",
+  "file",
+  "hidden",
+  "color",
+  "number",
+  "date",
+  "datetime-local",
+  "time",
+  "month",
+  "week",
+]);
+
+function isBlockingPanelHotkeyTarget(el) {
+  if (!el || typeof el.closest !== "function") {
+    return false;
+  }
+  if (el.closest("[contenteditable='true']")) {
+    return true;
+  }
+  const tag = (el.tagName || "").toUpperCase();
+  if (tag === "TEXTAREA") {
+    return true;
+  }
+  if (tag !== "INPUT") {
+    return false;
+  }
+  return !PANEL_HOTKEY_ALLOWED_INPUT_TYPES.has((el.type || "").toLowerCase());
+}
+
 function refreshPanelIcons() {
   createIcons({ icons, attrs: LUCIDE_ATTRS });
 }
@@ -41,7 +76,7 @@ function $(sel) {
   return document.querySelector(sel);
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+function runRendererUiInit() {
   const togglePanelBtn = $("#togglePanelBtn");
   const toggleDockBtn = $("#toggleDockBtn");
   const resetAllDisplaysBtn = $("#resetAllDisplaysBtn");
@@ -1700,62 +1735,67 @@ document.addEventListener("DOMContentLoaded", () => {
     toggleDockBtn.addEventListener("click", togglePanelDock);
     bindIconKeyActivation(toggleDockBtn, togglePanelDock);
   }
-  document.addEventListener("keydown", (e) => {
-    const key = e.key.toLowerCase();
-    const tag = (e.target && e.target.tagName) || "";
-    const isFormTag = ["INPUT", "TEXTAREA", "SELECT"].includes(tag);
-    const isFunctionKey = key === "f3" || key === "f4" || key === "f5";
-    const isCtrl = e.ctrlKey || e.metaKey;
-    if (isFormTag && !isFunctionKey && !isCtrl) return; // 입력 중에는 일반 키만 무시, F3/F4/F5와 Ctrl 조합은 허용
-    if (isCtrl && key === "c") {
-      if (!window.app || typeof window.app.copySelectedLight !== "function")
+  window.addEventListener(
+    "keydown",
+    (e) => {
+      const key = e.key.toLowerCase();
+      const blocksHotkey = isBlockingPanelHotkeyTarget(e.target);
+      const isFunctionKey = key === "f3" || key === "f4" || key === "f5";
+      const isCtrl = e.ctrlKey || e.metaKey;
+      if (blocksHotkey && !isFunctionKey && !isCtrl) {
         return;
-      const state = window.app.getState && window.app.getState();
-      if (state && state.mode === "shoot") return;
-      window.app.copySelectedLight();
-      return;
-    }
-    if (isCtrl && key === "v") {
-      if (!window.app || typeof window.app.pasteLight !== "function") return;
-      const state = window.app.getState && window.app.getState();
-      if (state && state.mode === "shoot") return;
-      window.app.pasteLight();
-      return;
-    }
-    if (key === "d") {
-      e.preventDefault();
-      togglePanelDock();
-      return;
-    }
-    if (key === "p") {
-      e.preventDefault();
-      runTogglePanelFromUi();
-      return;
-    }
-    if (key === "f3") {
-      e.preventDefault();
-      if (!window.app || typeof window.app.setMode !== "function") return;
-      window.app.setMode("edit");
-      applyModeToUi("edit");
-      return;
-    }
-    if (key === "f4") {
-      e.preventDefault();
-      if (!window.app || typeof window.app.setMode !== "function") return;
-      window.app.setMode("shoot");
-      applyModeToUi("shoot");
-      return;
-    }
-    if (key === "f5") {
-      e.preventDefault();
-      if (!window.app || typeof window.app.triggerShoot !== "function") return;
-      window.app.triggerShoot();
-      if (shootModeHint) {
-        shootModeHint.textContent =
-          "촬영이 진행 중입니다. 타이머가 끝날 때까지 기다려 주세요.";
       }
-    }
-  });
+      if (isCtrl && key === "c") {
+        if (!window.app || typeof window.app.copySelectedLight !== "function")
+          return;
+        const state = window.app.getState && window.app.getState();
+        if (state && state.mode === "shoot") return;
+        window.app.copySelectedLight();
+        return;
+      }
+      if (isCtrl && key === "v") {
+        if (!window.app || typeof window.app.pasteLight !== "function") return;
+        const state = window.app.getState && window.app.getState();
+        if (state && state.mode === "shoot") return;
+        window.app.pasteLight();
+        return;
+      }
+      if (!isCtrl && !e.altKey && !blocksHotkey && e.code === "KeyD") {
+        e.preventDefault();
+        togglePanelDock();
+        return;
+      }
+      if (!isCtrl && !e.altKey && !blocksHotkey && e.code === "KeyP") {
+        e.preventDefault();
+        runTogglePanelFromUi();
+        return;
+      }
+      if (key === "f3") {
+        e.preventDefault();
+        if (!window.app || typeof window.app.setMode !== "function") return;
+        window.app.setMode("edit");
+        applyModeToUi("edit");
+        return;
+      }
+      if (key === "f4") {
+        e.preventDefault();
+        if (!window.app || typeof window.app.setMode !== "function") return;
+        window.app.setMode("shoot");
+        applyModeToUi("shoot");
+        return;
+      }
+      if (key === "f5") {
+        e.preventDefault();
+        if (!window.app || typeof window.app.triggerShoot !== "function") return;
+        window.app.triggerShoot();
+        if (shootModeHint) {
+          shootModeHint.textContent =
+            "촬영이 진행 중입니다. 타이머가 끝날 때까지 기다려 주세요.";
+        }
+      }
+    },
+    { capture: true },
+  );
 
   // ===== 패널 위 입력을 p5로 보내지 않기: 버블 단계에서 전파 차단 =====
   const panelEl = document.getElementById("control-panel");
@@ -1798,4 +1838,10 @@ document.addEventListener("DOMContentLoaded", () => {
   updateToggleButtonLabel();
   updateDockButtonLabel();
   refreshPanelIcons();
-});
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", runRendererUiInit);
+} else {
+  queueMicrotask(runRendererUiInit);
+}
