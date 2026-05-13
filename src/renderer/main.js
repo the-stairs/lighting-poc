@@ -322,25 +322,36 @@ function applyControlCanvasViewFromUser(next) {
   broadcastControlCanvasPresentation();
 }
 
+function getControlZoomEffectiveScale() {
+  const c = getCanvasContainerSize();
+  const w = p5Sketch.width;
+  const h = p5Sketch.height;
+  const fitScale = Math.min(c.width / w, c.height / h);
+  if (controlCanvasView.mode === "fit") {
+    return fitScale;
+  }
+  return controlCanvasView.scale;
+}
+
+function applyControlViewZoomMultiplier(mult) {
+  if (appConfig.role !== "control" || !p5Sketch) {
+    return;
+  }
+  if (!(Number(mult) > 0)) {
+    return;
+  }
+  const next = clampControlViewScale(getControlZoomEffectiveScale() * mult);
+  controlCanvasView = { mode: "custom", scale: next };
+  persistControlCanvasView();
+  broadcastControlCanvasPresentation();
+}
+
 function nudgeControlCanvasZoom(direction) {
   if (appConfig.role !== "control" || !p5Sketch) {
     return;
   }
   const factor = direction > 0 ? 1.1 : 0.9;
-  const c = getCanvasContainerSize();
-  const w = p5Sketch.width;
-  const h = p5Sketch.height;
-  const fitScale = Math.min(c.width / w, c.height / h);
-  const base =
-    controlCanvasView.mode === "fit"
-      ? fitScale * factor
-      : controlCanvasView.scale * factor;
-  controlCanvasView = {
-    mode: "custom",
-    scale: clampControlViewScale(base),
-  };
-  persistControlCanvasView();
-  broadcastControlCanvasPresentation();
+  applyControlViewZoomMultiplier(factor);
 }
 
 function getControlCanvasView() {
@@ -1972,10 +1983,41 @@ function triggerShoot() {
   broadcastShootTrigger();
 }
 
+const WHEEL_ZOOM_SENSITIVITY = 0.0015;
+
+function onControlCanvasWheel(e) {
+  if (appConfig.role !== "control") {
+    return;
+  }
+  if (!(e.ctrlKey || e.metaKey)) {
+    return;
+  }
+  if (!p5Sketch) {
+    return;
+  }
+  e.preventDefault();
+  e.stopPropagation();
+  const mult = Math.exp(-e.deltaY * WHEEL_ZOOM_SENSITIVITY);
+  applyControlViewZoomMultiplier(mult);
+}
+
+function attachControlCanvasWheelZoom() {
+  if (appConfig.role !== "control") {
+    return;
+  }
+  const el = document.getElementById("canvas-container");
+  if (!el || el.dataset.wheelZoomBound === "1") {
+    return;
+  }
+  el.dataset.wheelZoomBound = "1";
+  el.addEventListener("wheel", onControlCanvasWheel, { passive: false });
+}
+
 async function bootstrapRenderer() {
   await loadDisplayLayouts();
   loadControlCanvasView();
   initP5Sketch();
+  attachControlCanvasWheelZoom();
   subscribeDisplayLayoutChanges(function () {
     refreshDisplayLayouts();
   });
