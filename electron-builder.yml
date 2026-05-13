@@ -1,6 +1,6 @@
 appId: com.thestairs.lighting-poc
 productName: Lighting POC
-buildVersion: 1.0.0
+buildVersion: "2.0.0"
 directories:
   output: release
   buildResources: build
