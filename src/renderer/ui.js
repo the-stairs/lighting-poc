@@ -1,4 +1,5 @@
 /* Panel UI bindings and events */
+import { formatDisplaySizeLabel, getDisplayLayout } from "./displaySpecs.js";
 
 function $(sel) {
   return document.querySelector(sel);
@@ -93,6 +94,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const opacityLabel = $("#opacityLabel");
 
   const displaySelect = $("#displaySelect");
+  const displayResolutionHint = $("#displayResolutionHint");
+  const canvasViewFitBtn = $("#canvasViewFitBtn");
+  const canvasView100Btn = $("#canvasView100Btn");
+  const canvasViewMinusBtn = $("#canvasViewMinusBtn");
+  const canvasViewPlusBtn = $("#canvasViewPlusBtn");
+  const canvasViewZoomLabel = $("#canvasViewZoomLabel");
   const modeEditBtn = $("#modeEditBtn");
   const modeShootBtn = $("#modeShootBtn");
   const shootStartBtn = $("#shootStartBtn");
@@ -137,15 +144,75 @@ document.addEventListener("DOMContentLoaded", () => {
   const shapeRadios = document.querySelectorAll('input[name="shape"]');
 
   if (displaySelect) {
+    let previousTargetId = displaySelect.value || "1";
     displaySelect.addEventListener("change", () => {
-      const targetId = displaySelect.value || "all";
+      const previousId = previousTargetId;
+      const targetId = displaySelect.value || "1";
+      previousTargetId = targetId;
       dispatchEvent(
-        new CustomEvent("app:displayTargetChanged", { detail: { targetId } })
+        new CustomEvent("app:displayTargetChanged", {
+          detail: { targetId, previousId },
+        })
       );
-      if (window.app && typeof window.app.setEditTarget === "function") {
-        window.app.setEditTarget(targetId);
-      }
     });
+  }
+
+  function updateCanvasViewZoomLabel() {
+    if (!canvasViewZoomLabel || !window.app?.getControlCanvasView) {
+      return;
+    }
+    const view = window.app.getControlCanvasView();
+    if (view.mode === "fit") {
+      canvasViewZoomLabel.textContent = "보기: 창에 맞춤";
+      return;
+    }
+    canvasViewZoomLabel.textContent = `보기: ${Math.round(view.scale * 100)}%`;
+  }
+
+  function updateDisplayResolutionHint(detail) {
+    if (!displayResolutionHint || !detail) {
+      return;
+    }
+    const layout = detail.layout || getDisplayLayout(detail.displayId);
+    const presentation = detail.presentation || {};
+    displayResolutionHint.textContent = formatDisplaySizeLabel(
+      layout,
+      detail.width,
+      detail.height,
+      presentation.width,
+      presentation.height
+    );
+  }
+
+  function getCanvasPresentationScale() {
+    if (!canvasContainer) {
+      return { scaleX: 1, scaleY: 1 };
+    }
+    const canvas = canvasContainer.querySelector("canvas");
+    if (!canvas || !canvas.width || !canvas.height) {
+      return { scaleX: 1, scaleY: 1 };
+    }
+    const canvasRect = canvas.getBoundingClientRect();
+    return {
+      scaleX: canvasRect.width / canvas.width,
+      scaleY: canvasRect.height / canvas.height,
+    };
+  }
+
+  function getCanvasOffsetInContainer() {
+    if (!canvasContainer) {
+      return { x: 0, y: 0 };
+    }
+    const canvas = canvasContainer.querySelector("canvas");
+    if (!canvas) {
+      return { x: 0, y: 0 };
+    }
+    const canvasRect = canvas.getBoundingClientRect();
+    const containerRect = canvasContainer.getBoundingClientRect();
+    return {
+      x: canvasRect.left - containerRect.left,
+      y: canvasRect.top - containerRect.top,
+    };
   }
 
   function ensureAppReady(cb) {
@@ -992,9 +1059,11 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!primary) {
         return;
       }
+      const offset = getCanvasOffsetInContainer();
+      const { scaleX, scaleY } = getCanvasPresentationScale();
       selectionIndicator.style.display = "flex";
-      selectionIndicator.style.left = `${primary.x}px`;
-      selectionIndicator.style.top = `${primary.y}px`;
+      selectionIndicator.style.left = `${offset.x + primary.x * scaleX}px`;
+      selectionIndicator.style.top = `${offset.y + primary.y * scaleY}px`;
       // 나머지 선택 조명에는 클론 인디케이터 배치
       for (let i = 1; i < ids.length; i++) {
         const id = ids[i];
@@ -1004,8 +1073,8 @@ document.addEventListener("DOMContentLoaded", () => {
           state.lights.find((x) => x.id === id);
         if (!l) continue;
         const clone = selectionIndicator.cloneNode(true);
-        clone.style.left = `${l.x}px`;
-        clone.style.top = `${l.y}px`;
+        clone.style.left = `${offset.x + l.x * scaleX}px`;
+        clone.style.top = `${offset.y + l.y * scaleY}px`;
         canvasContainer.appendChild(clone);
         selectionIndicatorClones.push(clone);
       }
@@ -1289,10 +1358,11 @@ document.addEventListener("DOMContentLoaded", () => {
     function fitSelectedToCanvas() {
       const l = window.app.getSelectedLight && window.app.getSelectedLight();
       if (!l) return;
-      const canvasW =
-        document.getElementById("canvas-container")?.clientWidth ||
-        window.innerWidth;
-      const canvasH = window.innerHeight;
+      const canvas = document
+        .getElementById("canvas-container")
+        ?.querySelector("canvas");
+      const canvasW = Math.max(1, canvas?.width || window.innerWidth);
+      const canvasH = Math.max(1, canvas?.height || window.innerHeight);
       const cx = Math.round(canvasW / 2);
       const cy = Math.round(canvasH / 2);
 
@@ -1458,12 +1528,72 @@ document.addEventListener("DOMContentLoaded", () => {
       exposureSlider.dispatchEvent(new Event("input", { bubbles: true }));
     }
     syncSizeBoundsByCanvas(
-      document.getElementById("canvas-container")?.clientWidth,
-      window.innerHeight
+      document.getElementById("canvas-container")?.querySelector("canvas")
+        ?.width,
+      document.getElementById("canvas-container")?.querySelector("canvas")
+        ?.height
     );
+    const initialCanvas = document
+      .getElementById("canvas-container")
+      ?.querySelector("canvas");
+    if (initialCanvas) {
+      updateDisplayResolutionHint({
+        width: initialCanvas.width,
+        height: initialCanvas.height,
+        displayId: displaySelect?.value || "1",
+        layout: getDisplayLayout(displaySelect?.value || "1"),
+      });
+    }
+    updateCanvasViewZoomLabel();
+
+    if (canvasViewFitBtn && window.app?.setControlCanvasView) {
+      canvasViewFitBtn.addEventListener("click", () => {
+        window.app.setControlCanvasView({ mode: "fit" });
+      });
+    }
+    if (canvasView100Btn && window.app?.setControlCanvasView) {
+      canvasView100Btn.addEventListener("click", () => {
+        window.app.setControlCanvasView({ mode: "custom", scale: 1 });
+      });
+    }
+    if (canvasViewMinusBtn && window.app?.nudgeControlCanvasZoom) {
+      canvasViewMinusBtn.addEventListener("click", () => {
+        window.app.nudgeControlCanvasZoom(-1);
+      });
+    }
+    if (canvasViewPlusBtn && window.app?.nudgeControlCanvasZoom) {
+      canvasViewPlusBtn.addEventListener("click", () => {
+        window.app.nudgeControlCanvasZoom(1);
+      });
+    }
     window.addEventListener("app:canvasResized", (e) => {
       const d = e.detail || {};
       syncSizeBoundsByCanvas(d.width, d.height);
+      updateDisplayResolutionHint(d);
+      if (
+        window.app &&
+        typeof window.app.getSelectedLight === "function" &&
+        selectionIndicator
+      ) {
+        const current = window.app.getSelectedLight();
+        updateSelectionIndicator(current);
+      }
+    });
+    window.addEventListener("app:canvasPresentationChanged", (e) => {
+      const d = e.detail || {};
+      updateDisplayResolutionHint(d);
+      updateCanvasViewZoomLabel();
+      if (
+        window.app &&
+        typeof window.app.getSelectedLight === "function" &&
+        selectionIndicator
+      ) {
+        const current = window.app.getSelectedLight();
+        updateSelectionIndicator(current);
+      }
+    });
+    window.addEventListener("app:controlCanvasViewChanged", () => {
+      updateCanvasViewZoomLabel();
     });
     syncFalloffCFromState();
     setControlsEnabled(false);

@@ -5,6 +5,7 @@
   --muted: #9aa0a6;
   --surface: #1b1b1b;
   --accent: #3b82f6;
+  --edit-gutter: #d8d8d8;
 }
 
 * {
@@ -387,6 +388,39 @@ button:disabled {
   width: 100vw;
   height: 100vh;
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+}
+
+body.role-control .canvas-container {
+  background: var(--edit-gutter);
+  overflow: auto;
+}
+
+body.role-control .canvas-container canvas {
+  outline: 2px solid #6b7280;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  flex-shrink: 0;
+}
+
+.display-resolution-hint {
+  margin: 0;
+  padding: 0 8px 8px;
+}
+
+.canvas-view-toolbar {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px 8px;
+}
+
+.canvas-view-toolbar .muted {
+  margin-left: auto;
+  min-width: 7em;
+  text-align: right;
 }
 
 .shoot-controls {

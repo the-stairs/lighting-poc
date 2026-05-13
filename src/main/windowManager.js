@@ -3,28 +3,16 @@
  * 논리 displayId(1~6)를 OS 모니터에 매핑하고, role 쿼리로 같은 렌더러를 역할별로 로드합니다.
  */
 import path from "node:path";
-import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import { BrowserWindow, screen } from "electron";
+import {
+  DISPLAY_IDS,
+  getScreenForDisplayId,
+  readDisplayMapping,
+} from "./displayLayout.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DISPLAY_IDS = ["1", "2", "3", "4", "5", "6"];
 const PRELOAD_PATH = path.join(__dirname, "preload.js");
-
-/** userData/display-mapping.json — displayId → screen.getAllDisplays() 인덱스 */
-function readDisplayMapping(userDataPath) {
-  const filePath = path.join(userDataPath, "display-mapping.json");
-  try {
-    const raw = fs.readFileSync(filePath, "utf8");
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === "object") {
-      return parsed;
-    }
-  } catch (_err) {
-    /* ignore */
-  }
-  return {};
-}
 
 function getPrimaryDisplayId() {
   return screen.getPrimaryDisplay().id;
@@ -35,28 +23,6 @@ function listOutputDisplays() {
   return screen.getAllDisplays().filter(function (display) {
     return display.id !== primaryId;
   });
-}
-
-/** 매핑이 없으면 displayId 1→주 모니터 제외 첫 모니터, 2→둘째… 순으로 붙입니다 */
-function getScreenForDisplayId(displayId, mapping) {
-  const displays = screen.getAllDisplays();
-  const outputDisplays = listOutputDisplays();
-  if (!outputDisplays.length) {
-    return null;
-  }
-  const primaryId = getPrimaryDisplayId();
-  const mappedIndex = Number(mapping[displayId]);
-  if (Number.isInteger(mappedIndex) && displays[mappedIndex]) {
-    const mapped = displays[mappedIndex];
-    if (mapped.id !== primaryId) {
-      return mapped;
-    }
-  }
-  const fallbackIndex = Math.max(0, Number(displayId) - 1);
-  return (
-    outputDisplays[fallbackIndex] ||
-    outputDisplays[outputDisplays.length - 1]
-  );
 }
 
 /** 렌더러 베이스 URL에 role·displayId 쿼리를 붙입니다 */
@@ -210,4 +176,4 @@ export function createWindowManager(options) {
   };
 }
 
-export { DISPLAY_IDS };
+export { DISPLAY_IDS } from "./displayLayout.js";

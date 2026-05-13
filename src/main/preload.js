@@ -17,6 +17,21 @@ function readSyncWsUrl() {
 contextBridge.exposeInMainWorld("SYNC_WS_URL", readSyncWsUrl());
 contextBridge.exposeInMainWorld("electronAPI", {
   isElectron: true,
+  listDisplayLayouts: function () {
+    return ipcRenderer.invoke("displays:listLayouts");
+  },
+  onDisplayLayoutsChanged: function (callback) {
+    if (typeof callback !== "function") {
+      return function () {};
+    }
+    const listener = function () {
+      callback();
+    };
+    ipcRenderer.on("displays:layoutsChanged", listener);
+    return function () {
+      ipcRenderer.removeListener("displays:layoutsChanged", listener);
+    };
+  },
   relaunchDisplays: function () {
     return ipcRenderer.invoke("displays:relaunch");
   },

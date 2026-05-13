@@ -4,11 +4,12 @@
  */
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, ipcMain, screen } from "electron";
 import { startEmbeddedRelay, getRelayWsUrl } from "./relayHost.js";
 import { createStaticServer } from "./staticServer.js";
 import { createWindowManager } from "./windowManager.js";
 import { initAutoUpdater } from "./autoUpdater.js";
+import { listDisplayLayouts } from "./displayLayout.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -36,8 +37,33 @@ async function startRelay() {
   return getRelayWsUrl(relayServer);
 }
 
+/** 열린 모든 창에 디스플레이 레이아웃 변경 알림 */
+function broadcastDisplayLayoutsChanged() {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (win.isDestroyed()) {
+      continue;
+    }
+    win.webContents.send("displays:layoutsChanged");
+  }
+}
+
+/** screen 이벤트 → 렌더러 layoutsChanged */
+function registerDisplayScreenListeners() {
+  const events = [
+    "display-added",
+    "display-removed",
+    "display-metrics-changed",
+  ];
+  events.forEach(function (eventName) {
+    screen.on(eventName, broadcastDisplayLayoutsChanged);
+  });
+}
+
 /** 렌더러 preload → 메인 IPC (디스플레이 재시작·전체화면) */
 function registerIpcHandlers() {
+  ipcMain.handle("displays:listLayouts", function () {
+    return listDisplayLayouts(app.getPath("userData"));
+  });
   ipcMain.handle("displays:relaunch", function () {
     if (!windowManager) {
       return false;
@@ -88,6 +114,7 @@ async function shutdown() {
 
 app.whenReady().then(async function () {
   registerIpcHandlers();
+  registerDisplayScreenListeners();
   await createAppWindows();
   initAutoUpdater();
 });

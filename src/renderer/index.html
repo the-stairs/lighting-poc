@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ko">
   <head>
     <meta charset="utf-8" />
@@ -13,12 +13,12 @@
         <p class="nav-desc">컨트롤 또는 디스플레이를 선택하세요.</p>
         <nav class="nav-links">
           <a href="?role=control" class="nav-link nav-link-control">컨트롤</a>
-          <a href="?role=display&displayId=1" class="nav-link">Top</a>
-          <a href="?role=display&displayId=2" class="nav-link">Bottom</a>
-          <a href="?role=display&displayId=3" class="nav-link">Left</a>
-          <a href="?role=display&displayId=4" class="nav-link">Right</a>
-          <a href="?role=display&displayId=5" class="nav-link">Front</a>
-          <a href="?role=display&displayId=6" class="nav-link">Back</a>
+          <a href="?role=display&displayId=1" class="nav-link">상단(하측)</a>
+          <a href="?role=display&displayId=2" class="nav-link">상단(상측)</a>
+          <a href="?role=display&displayId=3" class="nav-link">좌</a>
+          <a href="?role=display&displayId=4" class="nav-link">우</a>
+          <a href="?role=display&displayId=5" class="nav-link">정면</a>
+          <a href="?role=display&displayId=6" class="nav-link">후면</a>
         </nav>
       </div>
     </div>
@@ -41,14 +41,33 @@
             <label class="grow">
               <span>적용 대상</span>
               <select id="displaySelect">
-                <option value="1">Top</option>
-                <option value="2">Bottom</option>
-                <option value="3">Left</option>
-                <option value="4">Right</option>
-                <option value="5">Front</option>
-                <option value="6">Back</option>
+                <option value="1">상단(하측)</option>
+                <option value="2">상단(상측)</option>
+                <option value="3">좌</option>
+                <option value="4">우</option>
+                <option value="5">정면</option>
+                <option value="6">후면</option>
               </select>
             </label>
+          </div>
+          <p
+            id="displayResolutionHint"
+            class="small display-resolution-hint"
+          ></p>
+          <div class="row canvas-view-toolbar">
+            <button type="button" id="canvasViewFitBtn" title="뷰포트 안에 맞춤">
+              창에 맞춤
+            </button>
+            <button type="button" id="canvasView100Btn" title="편집 해상도 1:1 표시">
+              100%
+            </button>
+            <button type="button" id="canvasViewMinusBtn" aria-label="축소">
+              −
+            </button>
+            <button type="button" id="canvasViewPlusBtn" aria-label="확대">
+              +
+            </button>
+            <span id="canvasViewZoomLabel" class="muted small"></span>
           </div>
         </details>
 
@@ -418,12 +437,7 @@
                   disabled
                 />
               </label>
-              <button
-                type="button"
-                class="step-btn"
-                id="anglePlus"
-                title="+1°"
-              >
+              <button type="button" class="step-btn" id="anglePlus" title="+1°">
                 +
               </button>
               <output id="angleValue">0°</output>

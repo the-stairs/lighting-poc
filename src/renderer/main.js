@@ -1,5 +1,12 @@
 /* p5.js sketch and WebGL shader-based light rendering */
 import { connectSyncRelay } from "./syncRelay.js";
+import {
+  computeFitPresentationSize,
+  getDisplayLayout,
+  getFixedEditCanvasSize,
+  loadDisplayLayouts,
+  subscribeDisplayLayoutChanges,
+} from "./displaySpecs.js";
 import p5 from "p5";
 
 let p5Sketch;
@@ -31,6 +38,73 @@ const BLEND_OVER = 1;
 const BLEND_MULTIPLY = 2;
 
 let lightClipboard = null;
+
+const CONTROL_VIEW_STORAGE_KEY = "lighting-control-canvas-view";
+const CONTROL_VIEW_SCALE_MIN = 0.15;
+const CONTROL_VIEW_SCALE_MAX = 2;
+let controlCanvasView = { mode: "fit", scale: 1 };
+
+function clampControlViewScale(value) {
+  return Math.min(
+    CONTROL_VIEW_SCALE_MAX,
+    Math.max(CONTROL_VIEW_SCALE_MIN, Number(value) || 1)
+  );
+}
+
+function loadControlCanvasView() {
+  if (appConfig.role !== "control" || typeof localStorage === "undefined") {
+    return;
+  }
+  try {
+    const raw = localStorage.getItem(CONTROL_VIEW_STORAGE_KEY);
+    if (!raw) {
+      return;
+    }
+    const o = JSON.parse(raw);
+    if (o.mode === "custom" && Number.isFinite(o.scale)) {
+      controlCanvasView = {
+        mode: "custom",
+        scale: clampControlViewScale(o.scale),
+      };
+      return;
+    }
+    if (o.mode === "fit") {
+      controlCanvasView = { mode: "fit", scale: 1 };
+    }
+  } catch (_e) {
+    /* ignore */
+  }
+}
+
+function persistControlCanvasView() {
+  if (appConfig.role !== "control" || typeof localStorage === "undefined") {
+    return;
+  }
+  try {
+    const payload =
+      controlCanvasView.mode === "custom"
+        ? {
+            mode: "custom",
+            scale: clampControlViewScale(controlCanvasView.scale),
+          }
+        : { mode: "fit" };
+    localStorage.setItem(CONTROL_VIEW_STORAGE_KEY, JSON.stringify(payload));
+  } catch (_e) {
+    /* ignore */
+  }
+}
+
+function computeControlPresentationPixels(editW, editH) {
+  const c = getCanvasContainerSize();
+  if (controlCanvasView.mode === "fit") {
+    return computeFitPresentationSize(editW, editH, c.width, c.height);
+  }
+  const s = clampControlViewScale(controlCanvasView.scale);
+  return {
+    width: Math.max(1, Math.round(editW * s)),
+    height: Math.max(1, Math.round(editH * s)),
+  };
+}
 
 function getSelectedIds() {
   if (Array.isArray(appState.selectedLightIds)) {
@@ -166,6 +240,176 @@ function getDisplayTargetId() {
   return el ? el.value || "1" : "1";
 }
 
+function getActiveDisplayIdForCanvas() {
+  if (appConfig.role === "display") {
+    return appConfig.displayId || "1";
+  }
+  return getDisplayTargetId();
+}
+
+function getCanvasContainerSize() {
+  const container = document.getElementById("canvas-container");
+  if (!container) {
+    return { width: 800, height: window.innerHeight };
+  }
+  const width = container.clientWidth;
+  const height = container.clientHeight;
+  if (height > 0) {
+    return { width, height };
+  }
+  return { width, height: window.innerHeight };
+}
+
+function resolveCanvasSize(displayId) {
+  const layout = getDisplayLayout(displayId);
+  if (appConfig.role === "display") {
+    return {
+      width: Math.max(1, Number(layout.width) || 1),
+      height: Math.max(1, Number(layout.height) || 1),
+    };
+  }
+  return getFixedEditCanvasSize(layout);
+}
+
+function syncControlCanvasPresentation() {
+  if (appConfig.role !== "control" || !p5Canvas?.elt || !p5Sketch) {
+    return null;
+  }
+  const displayId = getActiveDisplayIdForCanvas();
+  const layout = getDisplayLayout(displayId);
+  const width = p5Sketch.width;
+  const height = p5Sketch.height;
+  const presentation = computeControlPresentationPixels(width, height);
+  const canvas = p5Canvas.elt;
+  canvas.style.width = `${presentation.width}px`;
+  canvas.style.height = `${presentation.height}px`;
+  const view = {
+    mode: controlCanvasView.mode,
+    scale: clampControlViewScale(controlCanvasView.scale),
+  };
+  return { displayId, layout, width, height, presentation, view };
+}
+
+function broadcastControlCanvasPresentation() {
+  if (appConfig.role !== "control" || !p5Sketch) {
+    return;
+  }
+  const detail = syncControlCanvasPresentation();
+  if (!detail) {
+    return;
+  }
+  dispatchCanvasPresentationChanged(detail);
+  dispatchEvent(new CustomEvent("app:controlCanvasViewChanged", { detail }));
+}
+
+function dispatchControlViewportChanged() {
+  broadcastControlCanvasPresentation();
+}
+
+function applyControlCanvasViewFromUser(next) {
+  if (appConfig.role !== "control") {
+    return;
+  }
+  if (next.mode === "fit") {
+    controlCanvasView = { mode: "fit", scale: 1 };
+  } else {
+    controlCanvasView = {
+      mode: "custom",
+      scale: clampControlViewScale(next.scale),
+    };
+  }
+  persistControlCanvasView();
+  broadcastControlCanvasPresentation();
+}
+
+function nudgeControlCanvasZoom(direction) {
+  if (appConfig.role !== "control" || !p5Sketch) {
+    return;
+  }
+  const factor = direction > 0 ? 1.1 : 0.9;
+  const c = getCanvasContainerSize();
+  const w = p5Sketch.width;
+  const h = p5Sketch.height;
+  const fitScale = Math.min(c.width / w, c.height / h);
+  const base =
+    controlCanvasView.mode === "fit"
+      ? fitScale * factor
+      : controlCanvasView.scale * factor;
+  controlCanvasView = {
+    mode: "custom",
+    scale: clampControlViewScale(base),
+  };
+  persistControlCanvasView();
+  broadcastControlCanvasPresentation();
+}
+
+function getControlCanvasView() {
+  return {
+    mode: controlCanvasView.mode,
+    scale: clampControlViewScale(controlCanvasView.scale),
+  };
+}
+
+function setControlCanvasView(opts) {
+  if (!opts || typeof opts !== "object") {
+    return;
+  }
+  if (opts.mode === "fit") {
+    applyControlCanvasViewFromUser({ mode: "fit" });
+    return;
+  }
+  if (opts.mode === "custom" && Number.isFinite(opts.scale)) {
+    applyControlCanvasViewFromUser({ mode: "custom", scale: opts.scale });
+  }
+}
+
+function dispatchCanvasPresentationChanged(detail) {
+  dispatchEvent(
+    new CustomEvent("app:canvasPresentationChanged", { detail: detail || {} })
+  );
+}
+
+function dispatchCanvasResized(width, height, displayId) {
+  const layout = getDisplayLayout(displayId);
+  dispatchEvent(
+    new CustomEvent("app:canvasResized", {
+      detail: { width, height, displayId, layout },
+    })
+  );
+}
+
+async function refreshDisplayLayouts() {
+  await loadDisplayLayouts();
+  if (!p5Sketch) {
+    return;
+  }
+  resizeCanvasToActiveDisplay();
+  refreshLightsForCanvasSize();
+}
+
+function resizeCanvasToActiveDisplay(explicitDisplayId) {
+  if (!p5Sketch) {
+    return;
+  }
+  const displayId = explicitDisplayId || getActiveDisplayIdForCanvas();
+  const { width, height } = resolveCanvasSize(displayId);
+  p5Sketch.resizeCanvas(width, height);
+  dispatchCanvasResized(width, height, displayId);
+  if (appConfig.role === "control") {
+    broadcastControlCanvasPresentation();
+  }
+}
+
+function refreshLightsForCanvasSize() {
+  const state = getRenderState();
+  const snapshot = buildSnapshotFromState(state);
+  applyPresetToState(state, snapshot);
+  if (state === appState) {
+    emitSelectionChange();
+    dispatchLightsChanged();
+  }
+}
+
 function getSyncWsBaseUrl() {
   if (typeof window === "undefined" || !window.SYNC_WS_URL) {
     return "";
@@ -292,6 +536,15 @@ function scheduleSyncToDisplay() {
   }, SYNC_DEBOUNCE_MS);
 }
 
+function flushSyncToDisplay() {
+  if (appConfig.role !== "control" || !syncToDisplayTimeout) {
+    return;
+  }
+  clearTimeout(syncToDisplayTimeout);
+  syncToDisplayTimeout = null;
+  broadcastState();
+}
+
 function getDefaultPreset() {
   return {
     version: 1,
@@ -304,9 +557,15 @@ function getDefaultPreset() {
   };
 }
 
-function setEditTarget(targetId) {
+function setEditTarget(targetId, previousId) {
   if (appConfig.role !== "control") return;
-  const id = (targetId && String(targetId).trim()) || "all";
+  const id = (targetId && String(targetId).trim()) || "1";
+  const prev = (previousId && String(previousId).trim()) || id;
+  if (prev !== id) {
+    flushSyncToDisplay();
+    displayStateMap[prev] = serializePreset();
+  }
+  resizeCanvasToActiveDisplay(id);
   const preset = displayStateMap[id] || getDefaultPreset();
   applyPresetToState(appState, preset);
   emitSelectionChange();
@@ -350,10 +609,9 @@ function initP5Sketch() {
     };
 
     p.setup = function () {
-      const container = document.getElementById("canvas-container");
-      const w = container ? container.clientWidth : 800;
-      const h = window.innerHeight;
-      p5Canvas = p.createCanvas(w, h, p.WEBGL);
+      const displayId = getActiveDisplayIdForCanvas();
+      const { width, height } = resolveCanvasSize(displayId);
+      p5Canvas = p.createCanvas(width, height, p.WEBGL);
       p5Canvas.parent("canvas-container");
       p.pixelDensity(1);
       p.noStroke();
@@ -361,18 +619,19 @@ function initP5Sketch() {
       initRealtime();
 
       dispatchEvent(new Event("app:ready"));
+      dispatchCanvasResized(width, height, displayId);
+      if (appConfig.role === "control") {
+        broadcastControlCanvasPresentation();
+      }
     };
 
     p.windowResized = function () {
-      const container = document.getElementById("canvas-container");
-      const w = container ? container.clientWidth : 800;
-      const h = window.innerHeight;
-      p.resizeCanvas(w, h);
-      dispatchEvent(
-        new CustomEvent("app:canvasResized", {
-          detail: { width: w, height: h },
-        })
-      );
+      if (appConfig.role === "display") {
+        resizeCanvasToActiveDisplay();
+        refreshLightsForCanvasSize();
+        return;
+      }
+      dispatchControlViewportChanged();
     };
 
     p.draw = function () {
@@ -1428,19 +1687,18 @@ function sanitizeLight(raw) {
   return base;
 }
 
-function serializePreset() {
-  const s = appState;
+function buildSnapshotFromState(state) {
   const canvasW = Math.max(1, (p5Sketch && p5Sketch.width) || 1);
   const canvasH = Math.max(1, (p5Sketch && p5Sketch.height) || 1);
   const baseDim = Math.min(canvasW, canvasH);
   return {
     version: 2,
-    backgroundColor: s.backgroundColor,
-    creationShape: s.creationShape,
-    exposure: s.exposure,
-    falloffC: s.falloffC,
-    colorSpace: s.colorSpace,
-    lights: (s.lights || []).map((l) => {
+    backgroundColor: state.backgroundColor,
+    creationShape: state.creationShape,
+    exposure: state.exposure,
+    falloffC: state.falloffC,
+    colorSpace: state.colorSpace,
+    lights: (state.lights || []).map((l) => {
       const normalizedType =
         normalizeLayerType(l.type) ||
         resolveLayerType({ blendMode: l.blendMode, role: l.role });
@@ -1462,7 +1720,6 @@ function serializePreset() {
         durationSec: l.durationSec,
         blendMode: normalizedBlend,
       };
-      // 정규화 좌표/크기 추가 (해상도 독립적 동기화를 위해)
       if (canvasW > 0 && canvasH > 0) {
         const nx = (l.x ?? canvasW / 2) / canvasW;
         const ny = (l.y ?? canvasH / 2) / canvasH;
@@ -1475,10 +1732,8 @@ function serializePreset() {
           if (Number.isFinite(l.height)) {
             out.nHeight = l.height / canvasH;
           }
-        } else {
-          if (Number.isFinite(l.radius) && baseDim > 0) {
-            out.nRadius = l.radius / baseDim;
-          }
+        } else if (Number.isFinite(l.radius) && baseDim > 0) {
+          out.nRadius = l.radius / baseDim;
         }
       }
       if (normalizedShape === "rect") {
@@ -1492,6 +1747,10 @@ function serializePreset() {
       return out;
     }),
   };
+}
+
+function serializePreset() {
+  return buildSnapshotFromState(appState);
 }
 
 function applyPresetToState(targetState, preset) {
@@ -1623,8 +1882,26 @@ function triggerShoot() {
   broadcastShootTrigger();
 }
 
-// p5 인스턴스 모드로 스케치 시작
-initP5Sketch();
+async function bootstrapRenderer() {
+  await loadDisplayLayouts();
+  loadControlCanvasView();
+  initP5Sketch();
+  subscribeDisplayLayoutChanges(function () {
+    refreshDisplayLayouts();
+  });
+}
+
+bootstrapRenderer();
+
+window.addEventListener("app:displayTargetChanged", (event) => {
+  if (appConfig.role !== "control") {
+    return;
+  }
+  const detail = event.detail || {};
+  const targetId = detail.targetId || getDisplayTargetId();
+  const previousId = detail.previousId || targetId;
+  setEditTarget(targetId, previousId);
+});
 
 // expose API
 window.app = {
@@ -1654,4 +1931,7 @@ window.app = {
   copySelectedLight: () => copySelectedLightToClipboard(),
   pasteLight: () => pasteLightFromClipboard(),
   setSelection: (ids, primaryId) => setSelection(ids, primaryId),
+  getControlCanvasView,
+  setControlCanvasView,
+  nudgeControlCanvasZoom,
 };
