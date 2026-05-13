@@ -8,6 +8,26 @@ function refreshPanelIcons() {
   createIcons({ icons, attrs: LUCIDE_ATTRS });
 }
 
+function setLucideToolbarIcon({ el, iconName, title, ariaLabel }) {
+  if (!el) {
+    return;
+  }
+  el.title = title;
+  el.setAttribute("aria-label", ariaLabel);
+  el.innerHTML = `<i data-lucide="${iconName}" class="hi-icon" aria-hidden="true"></i>`;
+  refreshPanelIcons();
+}
+
+function bindIconKeyActivation(host, fn) {
+  host.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") {
+      return;
+    }
+    e.preventDefault();
+    fn();
+  });
+}
+
 function appendLucideIcon(el, name, extraClass) {
   el.textContent = "";
   const ic = document.createElement("i");
@@ -25,7 +45,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const togglePanelBtn = $("#togglePanelBtn");
   const toggleDockBtn = $("#toggleDockBtn");
   const resetAllDisplaysBtn = $("#resetAllDisplaysBtn");
-  const panelDockState = $("#panelDockState");
   const bgBlack = $("#bg-black");
   const bgWhite = $("#bg-white");
   const bgGray = $("#bg-gray");
@@ -166,7 +185,7 @@ document.addEventListener("DOMContentLoaded", () => {
       dispatchEvent(
         new CustomEvent("app:displayTargetChanged", {
           detail: { targetId, previousId },
-        })
+        }),
       );
     });
   }
@@ -549,7 +568,7 @@ document.addEventListener("DOMContentLoaded", () => {
     shapeRadios.forEach((r) =>
       r.addEventListener("change", (e) => {
         if (e.target.checked) window.app.setCreationShape(e.target.value);
-      })
+      }),
     );
 
     function addLayerOfType(type) {
@@ -706,7 +725,8 @@ document.addEventListener("DOMContentLoaded", () => {
         light.shape === "circle"
           ? Math.max(
               0,
-              (light.radius || 0) * Math.max(light.sizeX || 1, light.sizeY || 1)
+              (light.radius || 0) *
+                Math.max(light.sizeX || 1, light.sizeY || 1),
             )
           : Math.max(0, Math.max(light.width || 0, light.height || 0) * 0.5);
       const FEATHER_UI_MAX = 1600;
@@ -720,7 +740,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return {
         text: `${Math.round(applied)}px`,
         title: `feather ui=${Math.round(ui)} => applied=${Math.round(
-          applied
+          applied,
         )}px (cap=${Math.round(cap)})`,
       };
     }
@@ -796,8 +816,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const selectedSet = Array.isArray(selectedIds)
         ? new Set(selectedIds)
         : selectedIds
-        ? new Set([selectedIds])
-        : new Set();
+          ? new Set([selectedIds])
+          : new Set();
 
       for (let i = lights.length - 1; i >= 0; i--) {
         const light = lights[i];
@@ -898,8 +918,8 @@ document.addEventListener("DOMContentLoaded", () => {
             state.selectedLightIds && state.selectedLightIds.length
               ? state.selectedLightIds.slice()
               : state.selectedLightId
-              ? [state.selectedLightId]
-              : [];
+                ? [state.selectedLightId]
+                : [];
           const useCtrl = e.ctrlKey || e.metaKey;
           const useShift = e.shiftKey;
           let nextIds = existingIds;
@@ -935,8 +955,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 existingIds.includes(state.primarySelectedId)
                   ? state.primarySelectedId
                   : existingIds.length
-                  ? existingIds[existingIds.length - 1]
-                  : null;
+                    ? existingIds[existingIds.length - 1]
+                    : null;
             } else {
               nextIds = existingIds.concat(light.id);
               primary = light.id;
@@ -1029,11 +1049,11 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
       const ids =
-        (state.selectedLightIds && state.selectedLightIds.length
+        state.selectedLightIds && state.selectedLightIds.length
           ? state.selectedLightIds
           : state.selectedLightId
-          ? [state.selectedLightId]
-          : []);
+            ? [state.selectedLightId]
+            : [];
       if (!ids.length) {
         hideSelectionIndicator();
         return;
@@ -1091,7 +1111,7 @@ document.addEventListener("DOMContentLoaded", () => {
           renderLayerList(
             state.lights,
             state.selectedLightIds || [],
-            state.primarySelectedId || state.selectedLightId || null
+            state.primarySelectedId || state.selectedLightId || null,
           );
         return;
       }
@@ -1159,7 +1179,7 @@ document.addEventListener("DOMContentLoaded", () => {
         renderLayerList(
           state.lights,
           state.selectedLightIds || [],
-          state.primarySelectedId || state.selectedLightId || null
+          state.primarySelectedId || state.selectedLightId || null,
         );
     });
 
@@ -1260,7 +1280,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const v = Number(e.target.value);
         const featherLabel = formatFeatherLabel(
           v,
-          window.app.getSelectedLight()
+          window.app.getSelectedLight(),
         );
         if (softnessValue) softnessValue.textContent = featherLabel.text;
         if (softnessValue) softnessValue.title = featherLabel.title;
@@ -1369,7 +1389,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (heightValue) heightValue.textContent = String(Math.round(canvasH));
       } else {
         const r = Math.ceil(
-          Math.sqrt(canvasW * canvasW + canvasH * canvasH) / 2
+          Math.sqrt(canvasW * canvasW + canvasH * canvasH) / 2,
         );
         window.app.updateSelectedLight({
           x: cx,
@@ -1501,7 +1521,7 @@ document.addEventListener("DOMContentLoaded", () => {
       renderLayerList(
         detail.lights || [],
         detail.selectedLightIds || [],
-        detail.primarySelectedId || detail.selectedLightId || null
+        detail.primarySelectedId || detail.selectedLightId || null,
       );
       if (
         window.app &&
@@ -1521,7 +1541,7 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("canvas-container")?.querySelector("canvas")
         ?.width,
       document.getElementById("canvas-container")?.querySelector("canvas")
-        ?.height
+        ?.height,
     );
     updateCanvasViewZoomLabel();
 
@@ -1579,7 +1599,7 @@ document.addEventListener("DOMContentLoaded", () => {
       renderLayerList(
         initialState.lights,
         initialState.selectedLightIds || [],
-        initialState.primarySelectedId || initialState.selectedLightId || null
+        initialState.primarySelectedId || initialState.selectedLightId || null,
       );
       if (initialState.mode) {
         applyModeToUi(initialState.mode);
@@ -1594,9 +1614,9 @@ document.addEventListener("DOMContentLoaded", () => {
             (e) => {
               e.stopPropagation();
             },
-            false
+            false,
           );
-        }
+        },
       );
     }
 
@@ -1616,17 +1636,23 @@ document.addEventListener("DOMContentLoaded", () => {
   // Panel toggle button and hotkey
   function updateToggleButtonLabel() {
     const hidden = document.body.classList.contains("panel-hidden");
-    if (togglePanelBtn)
-      togglePanelBtn.textContent = hidden ? "패널 표시 (P)" : "패널 숨기기 (P)";
+    setLucideToolbarIcon({
+      el: togglePanelBtn,
+      iconName: "square-x",
+      title: hidden ? "패널 표시 (P)" : "패널 닫기 (P)",
+      ariaLabel: hidden ? "패널 표시" : "패널 닫기",
+    });
   }
   function updateDockButtonLabel() {
     const isRight = document.body.classList.contains("panel-right");
-    if (toggleDockBtn)
-      toggleDockBtn.textContent = isRight
-        ? "왼쪽으로 이동 (D)"
-        : "오른쪽으로 이동 (D)";
-    if (panelDockState)
-      panelDockState.textContent = isRight ? "현재: 오른쪽" : "현재: 왼쪽";
+    setLucideToolbarIcon({
+      el: toggleDockBtn,
+      iconName: isRight ? "panel-left-close" : "panel-right-close",
+      title: isRight ? "왼쪽으로 이동 (D)" : "오른쪽으로 이동 (D)",
+      ariaLabel: isRight
+        ? "패널을 화면 왼쪽에 두기"
+        : "패널을 화면 오른쪽에 두기",
+    });
   }
   function togglePanelDock() {
     document.body.classList.toggle("panel-right");
@@ -1637,23 +1663,31 @@ document.addEventListener("DOMContentLoaded", () => {
       window.app.setPreviewMode(hidden);
     }
   }
+  function runTogglePanelFromUi() {
+    const willHide = !document.body.classList.contains("panel-hidden");
+    document.body.classList.toggle("panel-hidden");
+    updateToggleButtonLabel();
+    syncPreviewMode(willHide);
+    if (
+      willHide &&
+      window.app &&
+      typeof window.app.clearSelection === "function"
+    ) {
+      window.app.clearSelection();
+    }
+  }
   if (togglePanelBtn) {
-    togglePanelBtn.addEventListener("click", () => {
-      const willHide = !document.body.classList.contains("panel-hidden");
-      document.body.classList.toggle("panel-hidden");
-      updateToggleButtonLabel();
-      syncPreviewMode(willHide);
-      if (
-        willHide &&
-        window.app &&
-        typeof window.app.clearSelection === "function"
-      ) {
-        window.app.clearSelection();
-      }
-    });
+    togglePanelBtn.addEventListener("click", runTogglePanelFromUi);
+    bindIconKeyActivation(togglePanelBtn, runTogglePanelFromUi);
   }
   if (resetAllDisplaysBtn) {
     resetAllDisplaysBtn.addEventListener("click", () => {
+      const ok = window.confirm(
+        "모든 디스플레이의 조명·설정을 초기값으로 되돌립니다. 정말 초기화할까요?",
+      );
+      if (!ok) {
+        return;
+      }
       if (
         window.app &&
         typeof window.app.resetAllDisplaysToDefault === "function"
@@ -1663,9 +1697,8 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
   if (toggleDockBtn) {
-    toggleDockBtn.addEventListener("click", () => {
-      togglePanelDock();
-    });
+    toggleDockBtn.addEventListener("click", togglePanelDock);
+    bindIconKeyActivation(toggleDockBtn, togglePanelDock);
   }
   document.addEventListener("keydown", (e) => {
     const key = e.key.toLowerCase();
@@ -1696,17 +1729,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     if (key === "p") {
       e.preventDefault();
-      const willHide = !document.body.classList.contains("panel-hidden");
-      document.body.classList.toggle("panel-hidden");
-      updateToggleButtonLabel();
-      syncPreviewMode(willHide);
-      if (
-        willHide &&
-        window.app &&
-        typeof window.app.clearSelection === "function"
-      ) {
-        window.app.clearSelection();
-      }
+      runTogglePanelFromUi();
       return;
     }
     if (key === "f3") {
@@ -1760,7 +1783,7 @@ document.addEventListener("DOMContentLoaded", () => {
           if (document.body.classList.contains("panel-hidden")) return;
           e.stopPropagation();
         },
-        false
+        false,
       );
     });
     panelEl.addEventListener(
@@ -1769,7 +1792,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (document.body.classList.contains("panel-hidden")) return;
         e.stopPropagation();
       },
-      { capture: false, passive: true }
+      { capture: false, passive: true },
     );
   }
   updateToggleButtonLabel();

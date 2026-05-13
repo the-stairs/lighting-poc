@@ -183,7 +183,7 @@ svg.lucide {
 .panel-title-row {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: space-between;
   gap: 0.75rem;
   flex-shrink: 0;
   margin-bottom: 28px;
@@ -191,6 +191,39 @@ svg.lucide {
 .panel-title-row h1 {
   margin: 0;
   font-size: 24px;
+}
+.panel-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.panel-top-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  user-select: none;
+}
+.panel-top-icon:hover {
+  background: #2a2a2a;
+  border-color: #444;
+}
+.panel-top-icon:focus {
+  outline: none;
+}
+.panel-top-icon:focus-visible {
+  outline: 2px solid #6b9fff;
+  outline-offset: 2px;
+}
+.panel-top-icon .hi-icon {
+  width: 1.125rem;
+  height: 1.125rem;
 }
 .panel h1 {
   margin: 0;
