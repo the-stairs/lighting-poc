@@ -376,6 +376,36 @@ function dispatchCanvasResized(width, height, displayId) {
       detail: { width, height, displayId, layout },
     })
   );
+  syncControlEditDisplayMeta();
+}
+
+function readDisplayTargetLabel(displayId) {
+  const sel = document.getElementById("displaySelect");
+  if (!sel) {
+    return String(displayId || "1");
+  }
+  const opt = sel.querySelector(`option[value="${String(displayId)}"]`);
+  if (opt && opt.textContent) {
+    return opt.textContent.trim();
+  }
+  return String(displayId || "1");
+}
+
+function syncControlEditDisplayMeta() {
+  const meta = document.getElementById("controlEditDisplayMeta");
+  if (!meta) {
+    return;
+  }
+  if (appConfig.role !== "control") {
+    meta.setAttribute("hidden", "");
+    meta.textContent = "";
+    return;
+  }
+  meta.removeAttribute("hidden");
+  const displayId = getActiveDisplayIdForCanvas();
+  const label = readDisplayTargetLabel(displayId);
+  const { width, height } = resolveCanvasSize(displayId);
+  meta.textContent = `${label} · ${width}×${height}`;
 }
 
 async function refreshDisplayLayouts() {
@@ -612,7 +642,7 @@ function initP5Sketch() {
       const displayId = getActiveDisplayIdForCanvas();
       const { width, height } = resolveCanvasSize(displayId);
       p5Canvas = p.createCanvas(width, height, p.WEBGL);
-      p5Canvas.parent("canvas-container");
+      p5Canvas.parent("canvas-center-slot");
       p.pixelDensity(1);
       p.noStroke();
 
