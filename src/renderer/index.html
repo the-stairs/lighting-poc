@@ -54,21 +54,6 @@
             id="displayResolutionHint"
             class="small display-resolution-hint"
           ></p>
-          <div class="row canvas-view-toolbar">
-            <button type="button" id="canvasViewFitBtn" title="뷰포트 안에 맞춤">
-              창에 맞춤
-            </button>
-            <button type="button" id="canvasView100Btn" title="편집 해상도 1:1 표시">
-              100%
-            </button>
-            <button type="button" id="canvasViewMinusBtn" aria-label="축소">
-              −
-            </button>
-            <button type="button" id="canvasViewPlusBtn" aria-label="확대">
-              +
-            </button>
-            <span id="canvasViewZoomLabel" class="muted small"></span>
-          </div>
         </details>
 
         <details class="group">
@@ -615,6 +600,29 @@
         class="canvas-container"
         aria-label="canvas"
       ></main>
+
+      <div
+        id="canvas-view-dock"
+        class="canvas-view-dock"
+        role="toolbar"
+        aria-label="캔버스 보기 배율"
+      >
+        <div class="canvas-view-toolbar">
+          <button type="button" id="canvasViewFitBtn" title="뷰포트 안에 맞춤">
+            창에 맞춤
+          </button>
+          <button type="button" id="canvasView100Btn" title="편집 해상도 1:1 표시">
+            100%
+          </button>
+          <button type="button" id="canvasViewMinusBtn" aria-label="축소">
+            −
+          </button>
+          <button type="button" id="canvasViewPlusBtn" aria-label="확대">
+            +
+          </button>
+        </div>
+        <span id="canvasViewZoomLabel" class="canvas-view-zoom-label muted small"></span>
+      </div>
 
       <div class="shoot-controls">
         <button type="button" id="modeEditBtn">

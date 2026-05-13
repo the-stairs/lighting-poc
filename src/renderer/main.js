@@ -691,8 +691,9 @@ function initP5Sketch() {
       }
     };
 
-    p.mousePressed = function () {
+    p.mousePressed = function (evt) {
       if (appConfig.role === "display") return;
+      if (isChromeUiEventTarget(evt)) return;
       if (isPointerOverPanel()) return;
       if (!isMouseOnCanvas()) return;
 
@@ -746,8 +747,9 @@ function initP5Sketch() {
       }
     };
 
-    p.mouseDragged = function () {
+    p.mouseDragged = function (evt) {
       if (appConfig.role === "display") return;
+      if (isChromeUiEventTarget(evt)) return;
       if (isPointerOverPanel()) return;
       if (!appState.dragging) return;
       const ids = getSelectedIds();
@@ -777,16 +779,18 @@ function initP5Sketch() {
       scheduleSyncToDisplay();
     };
 
-    p.mouseReleased = function () {
+    p.mouseReleased = function (evt) {
       if (appConfig.role === "display") return;
+      if (isChromeUiEventTarget(evt)) return;
       if (isPointerOverPanel()) return;
       appState.dragging = false;
       appState.multiDragAnchorId = null;
       appState.multiDragOffsets = [];
     };
 
-    p.doubleClicked = function () {
+    p.doubleClicked = function (evt) {
       if (appConfig.role === "display") return;
+      if (isChromeUiEventTarget(evt)) return;
       if (isPointerOverPanel()) return;
       if (!isMouseOnCanvas()) return;
       const idx = hitTest(p5Sketch.mouseX, p5Sketch.mouseY);
@@ -842,6 +846,32 @@ function drawBlockerDash(light) {
 }
 
 // ============ Input/Interaction ============
+function sketchPointerToClient() {
+  const canvasEl = p5Canvas && p5Canvas.elt;
+  if (!canvasEl || !p5Sketch) {
+    return null;
+  }
+  const r = canvasEl.getBoundingClientRect();
+  const w = Math.max(1, p5Sketch.width);
+  const h = Math.max(1, p5Sketch.height);
+  const sx = r.width / w;
+  const sy = r.height / h;
+  return {
+    x: r.left + p5Sketch.mouseX * sx,
+    y: r.top + p5Sketch.mouseY * sy,
+  };
+}
+
+function isChromeUiEventTarget(evt) {
+  if (!evt || !evt.target || typeof evt.target.closest !== "function") {
+    return false;
+  }
+  return Boolean(
+    evt.target.closest("#canvas-view-dock") ||
+      evt.target.closest(".shoot-controls")
+  );
+}
+
 function isMouseOnCanvas() {
   if (!p5Sketch) return false;
   return (
@@ -853,16 +883,46 @@ function isMouseOnCanvas() {
 }
 
 function isPointerOverPanel() {
-  if (!p5Sketch || document.body.classList.contains("panel-hidden"))
+  if (!p5Sketch) {
     return false;
+  }
+  const pt = sketchPointerToClient();
+  if (!pt) {
+    return false;
+  }
+  const clientX = pt.x;
+  const clientY = pt.y;
+  const dock = document.getElementById("canvas-view-dock");
+  if (dock) {
+    const dr = dock.getBoundingClientRect();
+    const overDock =
+      clientX >= dr.left &&
+      clientX <= dr.right &&
+      clientY >= dr.top &&
+      clientY <= dr.bottom;
+    if (overDock) {
+      return true;
+    }
+  }
+  const shoot = document.querySelector(".shoot-controls");
+  if (shoot) {
+    const sr = shoot.getBoundingClientRect();
+    const overShoot =
+      clientX >= sr.left &&
+      clientX <= sr.right &&
+      clientY >= sr.top &&
+      clientY <= sr.bottom;
+    if (overShoot) {
+      return true;
+    }
+  }
+  if (document.body.classList.contains("panel-hidden")) {
+    return false;
+  }
   const panel = document.getElementById("control-panel");
-  if (!panel) return false;
-  const canvasEl = p5Canvas && p5Canvas.elt;
-  if (!canvasEl) return false;
-
-  const c = canvasEl.getBoundingClientRect();
-  const clientX = c.left + p5Sketch.mouseX;
-  const clientY = c.top + p5Sketch.mouseY;
+  if (!panel) {
+    return false;
+  }
   const r = panel.getBoundingClientRect();
   return (
     clientX >= r.left &&

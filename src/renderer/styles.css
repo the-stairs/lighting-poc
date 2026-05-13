@@ -410,17 +410,46 @@ body.role-control .canvas-container canvas {
   padding: 0 8px 8px;
 }
 
-.canvas-view-toolbar {
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  padding: 0 8px 8px;
+body.role-display .canvas-view-dock {
+  display: none;
 }
 
-.canvas-view-toolbar .muted {
-  margin-left: auto;
-  min-width: 7em;
-  text-align: right;
+.canvas-view-dock {
+  position: fixed;
+  right: 12px;
+  bottom: 12px;
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.78);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  pointer-events: auto;
+}
+
+.canvas-view-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  max-width: min(92vw, 280px);
+}
+
+.canvas-view-toolbar button {
+  min-width: 2.25rem;
+}
+
+.canvas-view-zoom-label {
+  display: block;
+  text-align: center;
+  margin: 0;
+  padding: 0;
+  line-height: 1.3;
 }
 
 .shoot-controls {
@@ -436,7 +465,7 @@ body.role-control .canvas-container canvas {
   border: 2px solid #3a3a3a;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.7);
   font-size: 16px;
-  z-index: 50;
+  z-index: 1200;
 }
 
 .shoot-controls button {
