@@ -118,29 +118,6 @@ export function computeFitPresentationSize(editW, editH, containerW, containerH)
   };
 }
 
-export function formatDisplaySizeLabel(
-  layout,
-  editW,
-  editH,
-  presentationW,
-  presentationH
-) {
-  const width = Math.max(1, Number(layout?.width) || FALLBACK_WIDTH);
-  const height = Math.max(1, Number(layout?.height) || FALLBACK_HEIGHT);
-  const editWidth = Math.max(1, Math.round(Number(editW) || 1));
-  const editHeight = Math.max(1, Math.round(Number(editH) || 1));
-  let base = `${width}×${height} (논리) → ${editWidth}×${editHeight}px 편집`;
-  const showW = Math.round(Number(presentationW) || 0);
-  const showH = Math.round(Number(presentationH) || 0);
-  if (showW > 0 && showH > 0 && (showW !== editWidth || showH !== editHeight)) {
-    base += ` · 표시 ${showW}×${showH}px`;
-  }
-  if (layout?.available === false) {
-    return `${base} · 연결된 출력 모니터 없음`;
-  }
-  return base;
-}
-
 export function subscribeDisplayLayoutChanges(callback) {
   const api = window.electronAPI;
   if (!api || typeof api.onDisplayLayoutsChanged !== "function") {

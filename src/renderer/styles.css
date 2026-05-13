@@ -405,11 +405,6 @@ body.role-control .canvas-container canvas {
   flex-shrink: 0;
 }
 
-.display-resolution-hint {
-  margin: 0;
-  padding: 0 8px 8px;
-}
-
 body.role-display .canvas-view-dock {
   display: none;
 }

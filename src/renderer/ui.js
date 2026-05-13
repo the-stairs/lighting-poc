@@ -1,5 +1,4 @@
 /* Panel UI bindings and events */
-import { formatDisplaySizeLabel, getDisplayLayout } from "./displaySpecs.js";
 
 function $(sel) {
   return document.querySelector(sel);
@@ -94,7 +93,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const opacityLabel = $("#opacityLabel");
 
   const displaySelect = $("#displaySelect");
-  const displayResolutionHint = $("#displayResolutionHint");
   const canvasViewFitBtn = $("#canvasViewFitBtn");
   const canvasView100Btn = $("#canvasView100Btn");
   const canvasViewMinusBtn = $("#canvasViewMinusBtn");
@@ -167,21 +165,6 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
     canvasViewZoomLabel.textContent = `보기: ${Math.round(view.scale * 100)}%`;
-  }
-
-  function updateDisplayResolutionHint(detail) {
-    if (!displayResolutionHint || !detail) {
-      return;
-    }
-    const layout = detail.layout || getDisplayLayout(detail.displayId);
-    const presentation = detail.presentation || {};
-    displayResolutionHint.textContent = formatDisplaySizeLabel(
-      layout,
-      detail.width,
-      detail.height,
-      presentation.width,
-      presentation.height
-    );
   }
 
   function getCanvasPresentationScale() {
@@ -1533,17 +1516,6 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("canvas-container")?.querySelector("canvas")
         ?.height
     );
-    const initialCanvas = document
-      .getElementById("canvas-container")
-      ?.querySelector("canvas");
-    if (initialCanvas) {
-      updateDisplayResolutionHint({
-        width: initialCanvas.width,
-        height: initialCanvas.height,
-        displayId: displaySelect?.value || "1",
-        layout: getDisplayLayout(displaySelect?.value || "1"),
-      });
-    }
     updateCanvasViewZoomLabel();
 
     if (canvasViewFitBtn && window.app?.setControlCanvasView) {
@@ -1569,7 +1541,6 @@ document.addEventListener("DOMContentLoaded", () => {
     window.addEventListener("app:canvasResized", (e) => {
       const d = e.detail || {};
       syncSizeBoundsByCanvas(d.width, d.height);
-      updateDisplayResolutionHint(d);
       if (
         window.app &&
         typeof window.app.getSelectedLight === "function" &&
@@ -1579,9 +1550,7 @@ document.addEventListener("DOMContentLoaded", () => {
         updateSelectionIndicator(current);
       }
     });
-    window.addEventListener("app:canvasPresentationChanged", (e) => {
-      const d = e.detail || {};
-      updateDisplayResolutionHint(d);
+    window.addEventListener("app:canvasPresentationChanged", () => {
       updateCanvasViewZoomLabel();
       if (
         window.app &&
