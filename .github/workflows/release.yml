@@ -55,8 +55,6 @@ jobs:
             args: --mac --publish always
           - os: windows-latest
             args: --win --publish always
-          - os: ubuntu-latest
-            args: --linux --publish always
 
     steps:
       - uses: actions/checkout@v4
