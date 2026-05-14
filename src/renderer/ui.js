@@ -94,17 +94,82 @@ function syncTopbarDisplayFromSelect() {
 }
 
 function closeAllTopbarDropdowns() {
-  document.querySelectorAll("#controlTopBar [data-dropdown]").forEach((root) => {
-    const panel = root.querySelector(".topbar-dropdown-panel");
-    const trigger = root.querySelector(".topbar-section-head");
-    if (panel) {
-      panel.hidden = true;
-    }
-    if (trigger) {
-      trigger.setAttribute("aria-expanded", "false");
-    }
-    root.classList.remove("is-open");
+  closeSettingsModal();
+  document
+    .querySelectorAll("#controlTopBar [data-dropdown]")
+    .forEach((root) => {
+      const panel = root.querySelector(".topbar-dropdown-panel");
+      const trigger = root.querySelector(".topbar-section-head");
+      if (panel) {
+        panel.hidden = true;
+      }
+      if (trigger) {
+        trigger.setAttribute("aria-expanded", "false");
+      }
+      root.classList.remove("is-open");
+    });
+}
+
+function isSettingsModalOpen() {
+  const root = document.getElementById("settingsModalRoot");
+  return Boolean(root && !root.hasAttribute("hidden"));
+}
+
+function openSettingsModal() {
+  const root = document.getElementById("settingsModalRoot");
+  const closeBtn = document.getElementById("settingsModalCloseBtn");
+  if (!root || !root.hasAttribute("hidden")) {
+    return;
+  }
+  closeAllTopbarDropdowns();
+  root.removeAttribute("hidden");
+  root.setAttribute("aria-hidden", "false");
+  document.body.classList.add("settings-modal-open");
+  if (closeBtn) {
+    closeBtn.focus();
+  }
+  refreshPanelIcons();
+}
+
+function closeSettingsModal() {
+  const root = document.getElementById("settingsModalRoot");
+  if (!root || root.hasAttribute("hidden")) {
+    return;
+  }
+  root.setAttribute("hidden", "");
+  root.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("settings-modal-open");
+  const openBtn = document.getElementById("topbarSettingsOpenBtn");
+  if (openBtn) {
+    openBtn.focus();
+  }
+}
+
+function onTopbarSettingsOpenClick() {
+  if (isSettingsModalOpen()) {
+    closeSettingsModal();
+    return;
+  }
+  openSettingsModal();
+}
+
+function bindSettingsModal() {
+  const openBtn = document.getElementById("topbarSettingsOpenBtn");
+  const root = document.getElementById("settingsModalRoot");
+  const closeBtn = document.getElementById("settingsModalCloseBtn");
+  if (!openBtn || !root) {
+    return;
+  }
+  openBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    onTopbarSettingsOpenClick();
   });
+  root.querySelectorAll("[data-settings-modal-dismiss]").forEach((el) => {
+    el.addEventListener("click", () => closeSettingsModal());
+  });
+  if (closeBtn) {
+    closeBtn.addEventListener("click", () => closeSettingsModal());
+  }
 }
 
 function toggleTopbarDropdown(root, panel, trigger) {
@@ -136,7 +201,23 @@ function isEventTargetInsideControlTopBar(target) {
 }
 
 function onDocumentMousedownCloseTopbar(e) {
+  const modalRoot = document.getElementById("settingsModalRoot");
+  let modalOpen = Boolean(modalRoot && !modalRoot.hasAttribute("hidden"));
+  const openBtn = document.getElementById("topbarSettingsOpenBtn");
+  const dismissModal =
+    modalOpen &&
+    modalRoot &&
+    openBtn &&
+    !modalRoot.contains(e.target) &&
+    !openBtn.contains(e.target);
+  if (dismissModal) {
+    closeSettingsModal();
+    modalOpen = false;
+  }
   if (isEventTargetInsideControlTopBar(e.target)) {
+    return;
+  }
+  if (modalOpen && modalRoot && modalRoot.contains(e.target)) {
     return;
   }
   closeAllTopbarDropdowns();
@@ -144,6 +225,10 @@ function onDocumentMousedownCloseTopbar(e) {
 
 function onDocumentKeydownCloseTopbar(e) {
   if (e.key !== "Escape") {
+    return;
+  }
+  if (isSettingsModalOpen()) {
+    closeSettingsModal();
     return;
   }
   closeAllTopbarDropdowns();
@@ -180,7 +265,9 @@ function addTopbarDisplayOptionRow(sel, list, opt) {
   btn.textContent = opt.textContent.trim();
   btn.setAttribute("role", "option");
   btn.setAttribute("aria-selected", opt.selected ? "true" : "false");
-  btn.addEventListener("click", () => onTopbarDisplayOptionClick(sel, opt.value));
+  btn.addEventListener("click", () =>
+    onTopbarDisplayOptionClick(sel, opt.value),
+  );
   li.appendChild(btn);
   list.appendChild(li);
 }
@@ -192,7 +279,9 @@ function buildTopbarDisplayMenu() {
     return;
   }
   list.innerHTML = "";
-  Array.from(sel.options).forEach((opt) => addTopbarDisplayOptionRow(sel, list, opt));
+  Array.from(sel.options).forEach((opt) =>
+    addTopbarDisplayOptionRow(sel, list, opt),
+  );
 }
 
 function wireTopbarPresetCloseOnAction() {
@@ -201,9 +290,7 @@ function wireTopbarPresetCloseOnAction() {
     return;
   }
   wrap.addEventListener("click", (e) => {
-    const hit = e.target.closest(
-      "#importPresetBtn, #savePresetBtn",
-    );
+    const hit = e.target.closest("#importPresetBtn, #savePresetBtn");
     if (!hit) {
       return;
     }
@@ -365,6 +452,7 @@ function runRendererUiInit() {
 
   buildTopbarDisplayMenu();
   bindTopbarDropdowns();
+  bindSettingsModal();
   wireTopbarPresetCloseOnAction();
   syncTopbarDisplayFromSelect();
   function updateCanvasViewZoomLabel() {
@@ -1890,7 +1978,8 @@ function runRendererUiInit() {
       }
       if (key === "f5") {
         e.preventDefault();
-        if (!window.app || typeof window.app.triggerShoot !== "function") return;
+        if (!window.app || typeof window.app.triggerShoot !== "function")
+          return;
         window.app.triggerShoot();
         if (shootModeHint) {
           shootModeHint.textContent =

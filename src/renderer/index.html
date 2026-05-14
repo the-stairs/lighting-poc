@@ -40,6 +40,27 @@
 
           <div class="topbar-sections" role="toolbar" aria-label="편집 메뉴">
             <section
+              class="topbar-section topbar-section--settings"
+              id="topbarSettingsSection"
+              aria-label="설정"
+            >
+              <button
+                type="button"
+                class="topbar-section-head"
+                id="topbarSettingsOpenBtn"
+                aria-haspopup="dialog"
+                aria-controls="settingsModalDialog"
+              >
+                <span class="topbar-section-head-main">
+                  <span class="topbar-dropdown-icon-wrap" aria-hidden="true">
+                    <i data-lucide="settings" class="hi-icon"></i>
+                  </span>
+                  <span class="topbar-section-title">설정</span>
+                </span>
+              </button>
+            </section>
+
+            <section
               class="topbar-section topbar-dropdown"
               data-dropdown
               id="topbarDisplayDropdown"
@@ -207,6 +228,41 @@
           </div>
         </div>
       </header>
+
+      <div
+        id="settingsModalRoot"
+        class="settings-modal-root"
+        hidden
+        aria-hidden="true"
+      >
+        <div
+          class="settings-modal-backdrop"
+          data-settings-modal-dismiss
+          aria-hidden="true"
+        ></div>
+        <div
+          id="settingsModalDialog"
+          class="settings-modal-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="settingsModalTitle"
+          tabindex="-1"
+        >
+          <div class="settings-modal-header">
+            <h2 id="settingsModalTitle" class="settings-modal-title">설정</h2>
+            <button
+              type="button"
+              class="settings-modal-close"
+              id="settingsModalCloseBtn"
+              aria-label="닫기"
+            >
+              <i data-lucide="x" class="hi-icon" aria-hidden="true"></i>
+            </button>
+          </div>
+          <div class="settings-modal-body" id="settingsModalBody"></div>
+        </div>
+      </div>
+
       <aside class="panel" id="control-panel">
         <div class="panel-title-row">
           <h1

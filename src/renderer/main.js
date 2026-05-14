@@ -225,6 +225,14 @@ function isControlEditInteractionAllowed() {
   return true;
 }
 
+function isControlLightCreationBlocked() {
+  return (
+    typeof document !== "undefined" &&
+    document.body &&
+    document.body.classList.contains("settings-modal-open")
+  );
+}
+
 const displayState = {
   backgroundColor: "#000000",
   creationShape: "circle",
@@ -797,6 +805,7 @@ function initP5Sketch() {
           scheduleSyncToDisplay();
         }
       } else {
+        if (isControlLightCreationBlocked()) return;
         const light = createLightAt(
           p5Sketch.mouseX,
           p5Sketch.mouseY,
@@ -1191,6 +1200,7 @@ function copySelectedLightToClipboard() {
 
 function pasteLightFromClipboard() {
   if (!isControlEditInteractionAllowed()) return;
+  if (isControlLightCreationBlocked()) return;
   if (!lightClipboard || !Array.isArray(lightClipboard.items)) return;
   const items = lightClipboard.items;
   if (!items.length) return;
@@ -1645,6 +1655,7 @@ function getState() {
 
 function addLayerAtCenter(type) {
   if (!isControlEditInteractionAllowed()) return;
+  if (isControlLightCreationBlocked()) return;
   if (!p5Sketch) return;
   const cx = Math.round(p5Sketch.width / 2);
   const cy = Math.round(p5Sketch.height / 2);

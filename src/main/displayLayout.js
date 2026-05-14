@@ -55,8 +55,7 @@ function getScreenForDisplayId(displayId, mapping) {
   const slotIndex = DISPLAY_IDS.indexOf(key);
   const fallbackIndex = slotIndex >= 0 ? slotIndex : 0;
   return (
-    outputDisplays[fallbackIndex] ||
-    outputDisplays[outputDisplays.length - 1]
+    outputDisplays[fallbackIndex] || outputDisplays[outputDisplays.length - 1]
   );
 }
 
