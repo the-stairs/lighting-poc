@@ -202,7 +202,7 @@ function wireTopbarPresetCloseOnAction() {
   }
   wrap.addEventListener("click", (e) => {
     const hit = e.target.closest(
-      "#exportPresetBtn, #importPresetBtn, #savePresetBtn",
+      "#importPresetBtn, #savePresetBtn",
     );
     if (!hit) {
       return;
@@ -285,9 +285,7 @@ function runRendererUiInit() {
   const lightColorB = $("#lightColorB");
   const deleteLightBtn = $("#deleteLightBtn");
   const fitCanvasBtn = $("#fitCanvasBtn");
-  const exportBtn = $("#exportPresetBtn");
   const savePresetBtn = $("#savePresetBtn");
-  const presetFileName = $("#presetFileName");
   const importBtn = $("#importPresetBtn");
   const importFile = $("#importPresetFile");
   const btnBringToFront = $("#btnBringToFront");
@@ -457,25 +455,6 @@ function runRendererUiInit() {
       falloffCSlider.value = v.toFixed(1);
       falloffCValue.textContent = v.toFixed(1);
     }
-    function makeDefaultPresetFilename() {
-      return `lighting-preset_${new Date()
-        .toISOString()
-        .replace(/[:.]/g, "-")}.json`;
-    }
-
-    function sanitizeFilename(raw) {
-      const name = String(raw ?? "").trim();
-      if (!name) return ""; // 빈칸이면 디폴트 fallback
-
-      // Windows/브라우저에서 문제 되는 문자들 제거/치환
-      const safe = name
-        .replace(/[/\\?%*:|"<>]/g, "-")
-        .replace(/\s+/g, " ")
-        .replace(/[. ]+$/g, ""); // 끝에 점/공백 제거
-
-      return safe;
-    }
-
     function stepSlider(sliderEl, delta, stepOverride, multiplier = 1) {
       if (!sliderEl) return;
       const cur = Number(sliderEl.value);
@@ -649,49 +628,29 @@ function runRendererUiInit() {
       });
     }
 
-    // Preset: Export (always all displays)
-    if (exportBtn) {
-      exportBtn.addEventListener("click", () => {
-        if (!window.app || typeof window.app.exportPreset !== "function") {
-          alert("앱이 아직 준비되지 않았습니다. 잠시 후 다시 시도해주세요.");
-          return;
-        }
-        const preset = window.app.exportPreset({
-          applyToAllDisplays: true,
-        });
-        const json = JSON.stringify(preset, null, 2);
-        const blob = new Blob([json], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-
-        const rawName = presetFileName ? presetFileName.value : "";
-        const userTyped = String(rawName ?? "").trim().length > 0;
-        let filename = sanitizeFilename(rawName);
-
-        // ✅ 빈칸이면 디폴트 파일명
-        if (!filename) {
-          if (userTyped) {
-            console.warn("Invalid filename. Falling back to default.");
-          }
-          filename = makeDefaultPresetFilename();
-        }
-        // ✅ 확장자 자동 보정
-        if (!filename.toLowerCase().endsWith(".json")) filename += ".json";
-
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = filename;
-
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
-      });
+    function triggerJsonFileDownload(json, filename) {
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
     }
 
-    if (presetFileName && exportBtn) {
-      presetFileName.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") exportBtn.click();
+    function downloadPresetJsonInBrowser() {
+      if (!window.app || typeof window.app.exportPreset !== "function") {
+        alert("앱이 아직 준비되지 않았습니다. 잠시 후 다시 시도해주세요.");
+        return;
+      }
+      const preset = window.app.exportPreset({
+        applyToAllDisplays: true,
       });
+      const json = JSON.stringify(preset, null, 2);
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+      triggerJsonFileDownload(json, `lighting-preset_${stamp}.json`);
     }
 
     if (savePresetBtn) {
@@ -705,7 +664,7 @@ function runRendererUiInit() {
           }
           return;
         }
-        if (exportBtn) exportBtn.click();
+        downloadPresetJsonInBrowser();
       });
     }
 
