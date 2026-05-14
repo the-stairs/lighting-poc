@@ -7,6 +7,11 @@ import {
   loadDisplayLayouts,
   subscribeDisplayLayoutChanges,
 } from "./displaySpecs.js";
+import {
+  DEFAULT_DISPLAY_ID,
+  DISPLAY_IDS,
+  normalizeDisplayId,
+} from "../shared/displayIds.js";
 import p5 from "p5";
 
 let p5Sketch;
@@ -18,6 +23,9 @@ const appConfig = {
   role: urlParams.get("role") === "display" ? "display" : "control",
   displayId: urlParams.get("displayId") || null,
 };
+if (appConfig.role === "display") {
+  appConfig.displayId = normalizeDisplayId(appConfig.displayId);
+}
 window.appConfig = appConfig;
 document.body.classList.add(
   appConfig.role === "display" ? "role-display" : "role-control"
@@ -237,12 +245,12 @@ const displayStateMap = {};
 
 function getDisplayTargetId() {
   const el = document.getElementById("displaySelect");
-  return el ? el.value || "1" : "1";
+  return el ? el.value || DEFAULT_DISPLAY_ID : DEFAULT_DISPLAY_ID;
 }
 
 function getActiveDisplayIdForCanvas() {
   if (appConfig.role === "display") {
-    return appConfig.displayId || "1";
+    return appConfig.displayId || DEFAULT_DISPLAY_ID;
   }
   return getDisplayTargetId();
 }
@@ -392,14 +400,15 @@ function dispatchCanvasResized(width, height, displayId) {
 
 function readDisplayTargetLabel(displayId) {
   const sel = document.getElementById("displaySelect");
+  const id = normalizeDisplayId(displayId);
   if (!sel) {
-    return String(displayId || "1");
+    return String(id || DEFAULT_DISPLAY_ID);
   }
-  const opt = sel.querySelector(`option[value="${String(displayId)}"]`);
+  const opt = sel.querySelector(`option[value="${String(id)}"]`);
   if (opt && opt.textContent) {
     return opt.textContent.trim();
   }
-  return String(displayId || "1");
+  return String(id || DEFAULT_DISPLAY_ID);
 }
 
 function syncControlEditDisplayMeta() {
@@ -471,7 +480,8 @@ function buildRelayWsUrl(baseUrl, roomName) {
 }
 
 function respondLiveStateRequest(sendFn, body) {
-  const targetId = body.targetId || "all";
+  const raw = body.targetId || "all";
+  const targetId = raw === "all" ? "all" : normalizeDisplayId(raw);
   const existing = displayStateMap[targetId];
   const snap = existing || getDefaultPreset();
   displayStateMap[targetId] = snap;
@@ -480,10 +490,10 @@ function respondLiveStateRequest(sendFn, body) {
 
 function applyDisplayRelayBody(body) {
   const targetId = body.targetId;
-  if (
-    targetId !== "all" &&
-    String(targetId) !== String(appConfig.displayId)
-  ) {
+  const matchesDisplay =
+    targetId === "all" ||
+    normalizeDisplayId(targetId) === normalizeDisplayId(appConfig.displayId);
+  if (!matchesDisplay) {
     return;
   }
   if (body.type === "LIVE_STATE") {
@@ -600,8 +610,12 @@ function getDefaultPreset() {
 
 function setEditTarget(targetId, previousId) {
   if (appConfig.role !== "control") return;
-  const id = (targetId && String(targetId).trim()) || "1";
-  const prev = (previousId && String(previousId).trim()) || id;
+  const id = normalizeDisplayId(
+    targetId == null ? "" : String(targetId).trim()
+  );
+  const prevRaw =
+    previousId == null ? "" : String(previousId).trim();
+  const prev = normalizeDisplayId(prevRaw || id);
   if (prev !== id) {
     flushSyncToDisplay();
     displayStateMap[prev] = serializePreset();
@@ -1915,9 +1929,23 @@ function applyPresetToState(targetState, preset) {
   return true;
 }
 
+function normalizePresetDisplays(raw) {
+  const out = {};
+  if (!raw || typeof raw !== "object") {
+    return out;
+  }
+  for (const [k, v] of Object.entries(raw)) {
+    if (!v || typeof v !== "object") {
+      continue;
+    }
+    out[normalizeDisplayId(k)] = v;
+  }
+  return out;
+}
+
 function exportPresetData(exportOptions) {
   const displays = {};
-  ["1", "2", "3", "4", "5", "6"].forEach((id) => {
+  DISPLAY_IDS.forEach((id) => {
     displays[id] = displayStateMap[id] || getDefaultPreset();
   });
   return { version: 1, scope: "all", displays: displays };
@@ -1938,7 +1966,7 @@ function resetCurrentDisplayToDefault() {
 }
 
 function resetAllDisplaysToDefault() {
-  ["1", "2", "3", "4", "5", "6"].forEach((id) => resetDisplayToDefault(id));
+  DISPLAY_IDS.forEach((id) => resetDisplayToDefault(id));
   const currentId = getDisplayTargetId();
   applyPresetToState(
     appState,
@@ -1956,8 +1984,9 @@ function applyPreset(preset, options) {
 
   if (isAllFormat) {
     resetAllDisplaysToDefault();
-    ["1", "2", "3", "4", "5", "6"].forEach((id) => {
-      const p = preset.displays[id];
+    const mapped = normalizePresetDisplays(preset.displays);
+    DISPLAY_IDS.forEach((id) => {
+      const p = mapped[id];
       if (p && typeof p === "object") {
         displayStateMap[id] = p;
         broadcastSnapshotToTarget(p, id);
@@ -1975,7 +2004,7 @@ function applyPreset(preset, options) {
   const ok = applyPresetToState(appState, preset);
   if (!ok) return false;
   const snapshot = serializePreset();
-  ["1", "2", "3", "4", "5", "6"].forEach((id) => {
+  DISPLAY_IDS.forEach((id) => {
     broadcastSnapshotToTarget(snapshot, id);
   });
   return true;

@@ -1,11 +1,13 @@
 /**
  * 컨트롤·디스플레이 BrowserWindow 생성·배치·종료.
- * 논리 displayId(1~6)를 OS 모니터에 매핑하고, role 쿼리로 같은 렌더러를 역할별로 로드합니다.
+ * 논리 displayId(top_lower, top_upper, left, right, front, rear)를 OS 모니터에 매핑하고,
+ * role 쿼리로 같은 렌더러를 역할별로 로드합니다.
  */
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { app, BrowserWindow, dialog, screen } from "electron";
+import { normalizeDisplayId } from "../shared/displayIds.js";
 import {
   DISPLAY_IDS,
   getScreenForDisplayId,
@@ -183,7 +185,7 @@ export function createWindowManager(options) {
     return win;
   }
 
-  /** 지정 displayId 모니터에 출력 전용 창 — ?role=display&displayId=N */
+  /** 지정 displayId 모니터에 출력 전용 창 — ?role=display&displayId=포지션키 */
   function createDisplayWindow(displayId) {
     const mapping = readDisplayMapping(userDataPath);
     const targetScreen = getScreenForDisplayId(displayId, mapping);
@@ -216,7 +218,7 @@ export function createWindowManager(options) {
     return win;
   }
 
-  /** 주 모니터를 제외한 연결 모니터 수와 6 중 작은 만큼 displayId 1부터 창 생성 */
+  /** 주 모니터를 제외한 연결 모니터 수와 6 중 작은 만큼 논리 displayId 순으로 창 생성 */
   function openAllDisplays() {
     const outputDisplays = listOutputDisplays();
     const maxDisplays = Math.min(DISPLAY_IDS.length, outputDisplays.length);
@@ -246,7 +248,8 @@ export function createWindowManager(options) {
 
   /** 디스플레이 창 전체화면 토글 */
   function toggleDisplayFullscreen(displayId) {
-    const win = windows.displays.get(String(displayId));
+    const key = normalizeDisplayId(displayId);
+    const win = windows.displays.get(key);
     if (!win || win.isDestroyed()) {
       return false;
     }

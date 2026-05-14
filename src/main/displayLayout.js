@@ -1,8 +1,13 @@
 import path from "node:path";
 import fs from "node:fs";
 import { screen } from "electron";
+import {
+  DISPLAY_IDS,
+  normalizeDisplayId,
+  normalizeDisplayMappingKeys,
+} from "../shared/displayIds.js";
 
-export const DISPLAY_IDS = ["1", "2", "3", "4", "5", "6"];
+export { DISPLAY_IDS };
 
 const FALLBACK_WIDTH = 1920;
 const FALLBACK_HEIGHT = 1080;
@@ -13,7 +18,7 @@ function readDisplayMapping(userDataPath) {
     const raw = fs.readFileSync(filePath, "utf8");
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed === "object") {
-      return parsed;
+      return normalizeDisplayMappingKeys(parsed);
     }
   } catch (_err) {
     /* ignore */
@@ -39,14 +44,16 @@ function getScreenForDisplayId(displayId, mapping) {
     return null;
   }
   const primaryId = getPrimaryDisplayId();
-  const mappedIndex = Number(mapping[displayId]);
+  const key = normalizeDisplayId(displayId);
+  const mappedIndex = Number(mapping[key]);
   if (Number.isInteger(mappedIndex) && displays[mappedIndex]) {
     const mapped = displays[mappedIndex];
     if (mapped.id !== primaryId) {
       return mapped;
     }
   }
-  const fallbackIndex = Math.max(0, Number(displayId) - 1);
+  const slotIndex = DISPLAY_IDS.indexOf(key);
+  const fallbackIndex = slotIndex >= 0 ? slotIndex : 0;
   return (
     outputDisplays[fallbackIndex] ||
     outputDisplays[outputDisplays.length - 1]

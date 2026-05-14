@@ -1,5 +1,6 @@
 /* Panel UI bindings and events */
 
+import { DEFAULT_DISPLAY_ID } from "../shared/displayIds.js";
 import { createIcons, icons } from "lucide";
 
 const LUCIDE_ATTRS = { "stroke-width": 1.5, class: ["hi-icon"] };
@@ -212,10 +213,10 @@ function runRendererUiInit() {
   const shapeRadios = document.querySelectorAll('input[name="shape"]');
 
   if (displaySelect) {
-    let previousTargetId = displaySelect.value || "1";
+    let previousTargetId = displaySelect.value || DEFAULT_DISPLAY_ID;
     displaySelect.addEventListener("change", () => {
       const previousId = previousTargetId;
-      const targetId = displaySelect.value || "1";
+      const targetId = displaySelect.value || DEFAULT_DISPLAY_ID;
       previousTargetId = targetId;
       dispatchEvent(
         new CustomEvent("app:displayTargetChanged", {

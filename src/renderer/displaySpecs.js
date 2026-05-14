@@ -1,4 +1,8 @@
-const DISPLAY_IDS = ["1", "2", "3", "4", "5", "6"];
+import {
+  DEFAULT_DISPLAY_ID,
+  DISPLAY_IDS,
+} from "../shared/displayIds.js";
+
 const FALLBACK_WIDTH = 1920;
 const FALLBACK_HEIGHT = 1080;
 
@@ -7,7 +11,7 @@ let layoutsLoaded = false;
 
 function buildFallbackLayout(displayId) {
   return {
-    displayId: String(displayId || "1"),
+    displayId: String(displayId || DEFAULT_DISPLAY_ID),
     width: FALLBACK_WIDTH,
     height: FALLBACK_HEIGHT,
     scaleFactor: 1,
@@ -31,7 +35,7 @@ function readBrowserFallbackLayout(displayId) {
   const width = Math.max(1, window.innerWidth || FALLBACK_WIDTH);
   const height = Math.max(1, window.innerHeight || FALLBACK_HEIGHT);
   return {
-    displayId: String(displayId || "1"),
+    displayId: String(displayId || DEFAULT_DISPLAY_ID),
     width,
     height,
     scaleFactor: window.devicePixelRatio || 1,
@@ -77,7 +81,7 @@ export async function loadDisplayLayouts() {
 }
 
 export function getDisplayLayout(displayId) {
-  const key = String(displayId || "1");
+  const key = String(displayId || DEFAULT_DISPLAY_ID);
   const cached = layoutCache.get(key);
   if (cached) {
     return cached;

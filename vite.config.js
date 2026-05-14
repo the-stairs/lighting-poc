@@ -9,6 +9,11 @@ export default defineConfig({
   base: "./",
   publicDir: "public",
   envDir: rootDir,
+  server: {
+    fs: {
+      allow: [rootDir, path.join(rootDir, "src")],
+    },
+  },
   build: {
     outDir: path.join(rootDir, "dist"),
     emptyOutDir: true,
