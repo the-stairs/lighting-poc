@@ -20,17 +20,6 @@ const PRELOAD_PATH = path.join(__dirname, "preload.js");
 const PRESET_EXPORT_SCRIPT =
   "(function(){try{if(!window.app||typeof window.app.exportPreset!=='function')return '';return JSON.stringify(window.app.exportPreset({applyToAllDisplays:true}),null,2);}catch(e){return '';}})()";
 
-function getPrimaryDisplayId() {
-  return screen.getPrimaryDisplay().id;
-}
-
-function listOutputDisplays() {
-  const primaryId = getPrimaryDisplayId();
-  return screen.getAllDisplays().filter(function (display) {
-    return display.id !== primaryId;
-  });
-}
-
 function buildDefaultPresetSavePath() {
   const d = new Date();
   const pad = (n) => String(n).padStart(2, "0");
@@ -223,16 +212,14 @@ export function createWindowManager(options) {
     return win;
   }
 
-  /** 주 모니터를 제외한 연결 모니터 수와 6 중 작은 만큼 논리 displayId 순으로 창 생성 */
+  /** 매핑에 화면이 있는 포지션마다 출력 창 생성(보조 모니터 개수로 앞쪽 슬롯만 자르지 않음) */
   function openAllDisplays() {
-    const outputDisplays = listOutputDisplays();
-    const maxDisplays = Math.min(DISPLAY_IDS.length, outputDisplays.length);
-    for (let i = 0; i < maxDisplays; i += 1) {
-      const displayId = DISPLAY_IDS[i];
-      if (!windows.displays.has(displayId)) {
-        createDisplayWindow(displayId);
+    DISPLAY_IDS.forEach(function (displayId) {
+      if (windows.displays.has(displayId)) {
+        return;
       }
-    }
+      createDisplayWindow(displayId);
+    });
   }
 
   /** 모든 디스플레이 창 닫기 */

@@ -8,6 +8,14 @@ const FALLBACK_HEIGHT = 1080;
 
 let layoutCache = new Map();
 let layoutsLoaded = false;
+let layoutSourceIsElectron = false;
+
+function notifyDisplayLayoutsRefreshed() {
+  if (typeof document === "undefined") {
+    return;
+  }
+  document.dispatchEvent(new CustomEvent("app:displayLayoutsRefreshed"));
+}
 
 function buildFallbackLayout(displayId) {
   return {
@@ -45,7 +53,7 @@ function readBrowserFallbackLayout(displayId) {
   };
 }
 
-function cacheLayouts(layouts) {
+function cacheLayouts(layouts, fromElectron) {
   layoutCache = new Map();
   (layouts || []).forEach(function (layout) {
     if (!layout || !layout.displayId) {
@@ -54,6 +62,7 @@ function cacheLayouts(layouts) {
     layoutCache.set(String(layout.displayId), layout);
   });
   layoutsLoaded = true;
+  layoutSourceIsElectron = Boolean(fromElectron);
 }
 
 function fetchLayoutsFromElectron() {
@@ -67,17 +76,28 @@ function fetchLayoutsFromElectron() {
 export async function loadDisplayLayouts() {
   const layouts = await fetchLayoutsFromElectron();
   if (Array.isArray(layouts) && layouts.length) {
-    cacheLayouts(layouts);
-    return layouts;
-  }
-  if (!layoutsLoaded) {
+    cacheLayouts(layouts, true);
+  } else if (!layoutsLoaded) {
     cacheLayouts(
       DISPLAY_IDS.map(function (displayId) {
         return readBrowserFallbackLayout(displayId);
-      })
+      }),
+      false
     );
   }
+  notifyDisplayLayoutsRefreshed();
   return Array.from(layoutCache.values());
+}
+
+export function isDisplaySelectEnabled(displayId) {
+  if (!layoutSourceIsElectron || !layoutsLoaded) {
+    return true;
+  }
+  const layout = layoutCache.get(String(displayId || DEFAULT_DISPLAY_ID));
+  if (!layout) {
+    return true;
+  }
+  return layout.available === true;
 }
 
 export function getDisplayLayout(displayId) {

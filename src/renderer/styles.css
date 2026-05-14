@@ -387,6 +387,16 @@ body.role-control .app-top-bar {
   color: var(--text);
 }
 
+.topbar-menu-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+  color: var(--muted);
+}
+
+.topbar-menu-option:disabled:hover {
+  background: transparent;
+}
+
 .topbar-panel-section {
   padding: 2px 4px 6px;
 }
@@ -1211,4 +1221,96 @@ body.settings-modal-open {
   min-height: 120px;
   padding: 16px;
   overflow: auto;
+}
+
+.settings-mapping[hidden] {
+  display: none !important;
+}
+
+.settings-mapping-title {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.settings-mapping-hint {
+  margin: 0 0 14px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.settings-mapping-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.settings-mapping-row {
+  display: grid;
+  grid-template-columns: minmax(100px, 34%) 1fr;
+  align-items: center;
+  gap: 10px 12px;
+}
+
+.settings-mapping-label {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.settings-mapping-select {
+  width: 100%;
+  max-width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #3a3a3a;
+  background: #1e1e1e;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.settings-mapping-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.settings-mapping-save,
+.settings-mapping-reset {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid #3a3a3a;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.settings-mapping-save {
+  background: var(--accent, #3b82f6);
+  border-color: transparent;
+  color: #fff;
+}
+
+.settings-mapping-reset {
+  background: transparent;
+  color: var(--text);
+}
+
+.settings-mapping-save:hover {
+  filter: brightness(1.08);
+}
+
+.settings-mapping-reset:hover {
+  background: #2a2a2a;
+}
+
+.settings-mapping-message {
+  margin: 0;
+  min-height: 1.25em;
+  font-size: 13px;
+  color: var(--muted);
 }

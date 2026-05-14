@@ -32,17 +32,3 @@ export function normalizeDisplayId(raw) {
   }
   return DEFAULT_DISPLAY_ID;
 }
-
-export function normalizeDisplayMappingKeys(raw) {
-  if (!raw || typeof raw !== "object") {
-    return {};
-  }
-  const out = {};
-  for (const [k, v] of Object.entries(raw)) {
-    const nk = normalizeDisplayId(k);
-    if (out[nk] == null) {
-      out[nk] = v;
-    }
-  }
-  return out;
-}

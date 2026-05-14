@@ -259,7 +259,45 @@
               <i data-lucide="x" class="hi-icon" aria-hidden="true"></i>
             </button>
           </div>
-          <div class="settings-modal-body" id="settingsModalBody"></div>
+          <div class="settings-modal-body" id="settingsModalBody">
+            <section
+              id="settingsDisplayMappingSection"
+              class="settings-mapping"
+              hidden
+            >
+              <h3 class="settings-mapping-title">모니터 매핑</h3>
+              <p class="settings-mapping-hint">
+                각 포지션에 출력할 보조 모니터를 하나만 지정합니다. 같은 모니터를
+                다른 포지션에서 고르면 이전 포지션은 자동으로 연결 해제됩니다. 주
+                모니터는 컨트롤 창용이라 여기서 선택할 수 없습니다.
+              </p>
+              <div
+                id="settingsMappingRows"
+                class="settings-mapping-rows"
+              ></div>
+              <div class="settings-mapping-actions">
+                <button
+                  type="button"
+                  class="settings-mapping-save"
+                  id="settingsMappingSaveBtn"
+                >
+                  저장 및 디스플레이 다시 띄우기
+                </button>
+                <button
+                  type="button"
+                  class="settings-mapping-reset"
+                  id="settingsMappingResetBtn"
+                >
+                  되돌리기
+                </button>
+              </div>
+              <p
+                id="settingsMappingMessage"
+                class="settings-mapping-message"
+                aria-live="polite"
+              ></p>
+            </section>
+          </div>
         </div>
       </div>
 

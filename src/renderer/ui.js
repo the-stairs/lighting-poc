@@ -1,6 +1,11 @@
 /* Panel UI bindings and events */
 
-import { DEFAULT_DISPLAY_ID } from "../shared/displayIds.js";
+import {
+  DEFAULT_DISPLAY_ID,
+  DISPLAY_IDS,
+  normalizeDisplayId,
+} from "../shared/displayIds.js";
+import { isDisplaySelectEnabled, loadDisplayLayouts } from "./displaySpecs.js";
 import { createIcons, icons } from "lucide";
 
 const LUCIDE_ATTRS = { "stroke-width": 1.5, class: ["hi-icon"] };
@@ -125,6 +130,7 @@ function openSettingsModal() {
   root.removeAttribute("hidden");
   root.setAttribute("aria-hidden", "false");
   document.body.classList.add("settings-modal-open");
+  void refreshSettingsDisplayMapping();
   if (closeBtn) {
     closeBtn.focus();
   }
@@ -169,6 +175,153 @@ function bindSettingsModal() {
   });
   if (closeBtn) {
     closeBtn.addEventListener("click", () => closeSettingsModal());
+  }
+}
+
+let settingsMappingEditorState = null;
+let settingsMappingDraft = null;
+
+function clearSettingsMappingMessage() {
+  const msg = document.getElementById("settingsMappingMessage");
+  if (msg) {
+    msg.textContent = "";
+  }
+}
+
+function cloneMappingFromState(state) {
+  const draft = {};
+  DISPLAY_IDS.forEach(function (id) {
+    const v = state.mapping[id];
+    draft[id] = Number.isInteger(v) ? v : null;
+  });
+  return draft;
+}
+
+function onSettingsMappingSelectChange(positionId, rawValue, editorState) {
+  const index = rawValue === "" ? null : Number(rawValue);
+  if (index !== null && !Number.isInteger(index)) {
+    return;
+  }
+  if (Number.isInteger(index)) {
+    DISPLAY_IDS.forEach(function (id) {
+      if (id !== positionId && settingsMappingDraft[id] === index) {
+        settingsMappingDraft[id] = null;
+      }
+    });
+  }
+  settingsMappingDraft[positionId] = index;
+  renderSettingsMappingRows(editorState);
+}
+
+function appendOneMappingRow(container, pos, secondary, editorState) {
+  const row = document.createElement("div");
+  row.className = "settings-mapping-row";
+  const lab = document.createElement("label");
+  lab.className = "settings-mapping-label";
+  lab.setAttribute("for", `settingsMappingSelect-${pos.id}`);
+  lab.textContent = pos.label;
+  const sel = document.createElement("select");
+  sel.className = "settings-mapping-select";
+  sel.id = `settingsMappingSelect-${pos.id}`;
+  const none = document.createElement("option");
+  none.value = "";
+  none.textContent = "(연결 없음)";
+  sel.appendChild(none);
+  secondary.forEach(function (c) {
+    const opt = document.createElement("option");
+    opt.value = String(c.index);
+    opt.textContent = `${c.label} — ${c.summary} [#${c.index}]`;
+    sel.appendChild(opt);
+  });
+  const cur = settingsMappingDraft[pos.id];
+  sel.value = Number.isInteger(cur) ? String(cur) : "";
+  sel.addEventListener("change", function () {
+    onSettingsMappingSelectChange(pos.id, sel.value, editorState);
+  });
+  row.appendChild(lab);
+  row.appendChild(sel);
+  container.appendChild(row);
+}
+
+function renderSettingsMappingRows(editorState) {
+  const container = document.getElementById("settingsMappingRows");
+  if (!container || !editorState) {
+    return;
+  }
+  const secondary = editorState.candidates.filter(function (c) {
+    return !c.isPrimary;
+  });
+  container.innerHTML = "";
+  editorState.positions.forEach(function (pos) {
+    appendOneMappingRow(container, pos, secondary, editorState);
+  });
+}
+
+async function refreshSettingsDisplayMapping() {
+  const section = document.getElementById("settingsDisplayMappingSection");
+  const api = window.electronAPI;
+  if (!section || typeof api.getDisplayMappingEditorState !== "function") {
+    if (section) {
+      section.hidden = true;
+    }
+    return;
+  }
+  try {
+    const state = await api.getDisplayMappingEditorState();
+    settingsMappingEditorState = state;
+    settingsMappingDraft = cloneMappingFromState(state);
+    section.hidden = false;
+    renderSettingsMappingRows(state);
+    clearSettingsMappingMessage();
+  } catch (_err) {
+    section.hidden = true;
+  }
+}
+
+async function persistSettingsMapping() {
+  const api = window.electronAPI;
+  const msg = document.getElementById("settingsMappingMessage");
+  if (typeof api.setDisplayMapping !== "function") {
+    return;
+  }
+  clearSettingsMappingMessage();
+  const res = await api.setDisplayMapping(settingsMappingDraft);
+  if (!res.ok) {
+    if (msg) {
+      msg.textContent = res.reason || "저장에 실패했습니다.";
+    }
+    return;
+  }
+  if (msg) {
+    msg.textContent = "저장했습니다.";
+  }
+  await loadDisplayLayouts();
+  await refreshSettingsDisplayMapping();
+}
+
+function resetSettingsMappingDraft() {
+  if (!settingsMappingEditorState) {
+    return;
+  }
+  settingsMappingDraft = cloneMappingFromState(settingsMappingEditorState);
+  renderSettingsMappingRows(settingsMappingEditorState);
+  clearSettingsMappingMessage();
+}
+
+function bindSettingsDisplayMappingSection() {
+  const saveBtn = document.getElementById("settingsMappingSaveBtn");
+  const resetBtn = document.getElementById("settingsMappingResetBtn");
+  if (saveBtn && !saveBtn.dataset.bound) {
+    saveBtn.dataset.bound = "1";
+    saveBtn.addEventListener("click", function () {
+      void persistSettingsMapping();
+    });
+  }
+  if (resetBtn && !resetBtn.dataset.bound) {
+    resetBtn.dataset.bound = "1";
+    resetBtn.addEventListener("click", function () {
+      resetSettingsMappingDraft();
+    });
   }
 }
 
@@ -265,11 +418,35 @@ function addTopbarDisplayOptionRow(sel, list, opt) {
   btn.textContent = opt.textContent.trim();
   btn.setAttribute("role", "option");
   btn.setAttribute("aria-selected", opt.selected ? "true" : "false");
-  btn.addEventListener("click", () =>
-    onTopbarDisplayOptionClick(sel, opt.value),
-  );
+  const enabled = !opt.disabled;
+  if (!enabled) {
+    btn.disabled = true;
+    btn.setAttribute("aria-disabled", "true");
+    btn.title = "매핑된 모니터가 없는 포지션입니다.";
+  } else {
+    btn.addEventListener("click", () =>
+      onTopbarDisplayOptionClick(sel, opt.value),
+    );
+  }
   li.appendChild(btn);
   list.appendChild(li);
+}
+
+function ensureControlDisplaySelectionValid(sel) {
+  if (!sel) {
+    return;
+  }
+  const cur = normalizeDisplayId(sel.value);
+  const curOpt = sel.querySelector(`option[value="${String(cur)}"]`);
+  if (curOpt && !curOpt.disabled) {
+    return;
+  }
+  const first = Array.from(sel.options).find((o) => !o.disabled);
+  if (!first) {
+    return;
+  }
+  sel.value = first.value;
+  sel.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
 function buildTopbarDisplayMenu() {
@@ -278,11 +455,20 @@ function buildTopbarDisplayMenu() {
   if (!sel || !list) {
     return;
   }
+  Array.from(sel.options).forEach((opt) => {
+    opt.disabled = !isDisplaySelectEnabled(opt.value);
+  });
   list.innerHTML = "";
   Array.from(sel.options).forEach((opt) =>
     addTopbarDisplayOptionRow(sel, list, opt),
   );
+  ensureControlDisplaySelectionValid(sel);
+  syncTopbarDisplayMenuSelection();
 }
+
+document.addEventListener("app:displayLayoutsRefreshed", () => {
+  buildTopbarDisplayMenu();
+});
 
 function wireTopbarPresetCloseOnAction() {
   const wrap = document.getElementById("topbarPresetDropdown");
@@ -453,6 +639,7 @@ function runRendererUiInit() {
   buildTopbarDisplayMenu();
   bindTopbarDropdowns();
   bindSettingsModal();
+  bindSettingsDisplayMappingSection();
   wireTopbarPresetCloseOnAction();
   syncTopbarDisplayFromSelect();
   function updateCanvasViewZoomLabel() {

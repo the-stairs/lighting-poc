@@ -9,7 +9,7 @@ import { startEmbeddedRelay, getRelayWsUrl } from "./relayHost.js";
 import { createStaticServer } from "./staticServer.js";
 import { createWindowManager } from "./windowManager.js";
 import { initAutoUpdater } from "./autoUpdater.js";
-import { listDisplayLayouts } from "./displayLayout.js";
+import { listDisplayLayouts, getMappingEditorState, saveDisplayMapping } from "./displayLayout.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -63,6 +63,20 @@ function registerDisplayScreenListeners() {
 function registerIpcHandlers() {
   ipcMain.handle("displays:listLayouts", function () {
     return listDisplayLayouts(app.getPath("userData"));
+  });
+  ipcMain.handle("displays:getMappingEditorState", function () {
+    return getMappingEditorState(app.getPath("userData"));
+  });
+  ipcMain.handle("displays:setMapping", function (_event, payload) {
+    const result = saveDisplayMapping(app.getPath("userData"), payload);
+    if (!result.ok) {
+      return result;
+    }
+    broadcastDisplayLayoutsChanged();
+    if (windowManager) {
+      windowManager.relaunchDisplays();
+    }
+    return { ok: true };
   });
   ipcMain.handle("displays:relaunch", function () {
     if (!windowManager) {

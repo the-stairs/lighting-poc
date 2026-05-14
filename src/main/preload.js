@@ -20,6 +20,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
   listDisplayLayouts: function () {
     return ipcRenderer.invoke("displays:listLayouts");
   },
+  getDisplayMappingEditorState: function () {
+    return ipcRenderer.invoke("displays:getMappingEditorState");
+  },
+  setDisplayMapping: function (payload) {
+    return ipcRenderer.invoke("displays:setMapping", payload);
+  },
   onDisplayLayoutsChanged: function (callback) {
     if (typeof callback !== "function") {
       return function () {};
