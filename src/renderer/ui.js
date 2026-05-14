@@ -326,6 +326,7 @@ function runRendererUiInit() {
     const body = document.body;
     if (!body) return;
     const isShoot = mode === "shoot";
+    body.classList.toggle("mode-shoot", isShoot);
     if (isShoot) {
       body.classList.add("panel-hidden");
     } else {
@@ -333,6 +334,9 @@ function runRendererUiInit() {
     }
     if (shootStartBtn) {
       shootStartBtn.disabled = !isShoot;
+    }
+    if (resetAllDisplaysBtn) {
+      resetAllDisplaysBtn.disabled = isShoot;
     }
     if (shootModeHint) {
       shootModeHint.style.display = isShoot ? "block" : "none";

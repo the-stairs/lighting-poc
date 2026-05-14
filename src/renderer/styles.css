@@ -518,6 +518,10 @@ body.role-control .panel {
   display: none;
 }
 
+body.mode-shoot.role-control .panel-scroll {
+  pointer-events: none;
+}
+
 /* Lucide: Heroicons-like outline weight (24px grid, stroke 1.5) */
 svg.lucide {
   flex-shrink: 0;

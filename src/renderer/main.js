@@ -218,6 +218,13 @@ const appState = {
   previewMode: false,
 };
 
+function isControlEditInteractionAllowed() {
+  if (appConfig.role !== "control") return false;
+  if (currentMode !== MODE_EDIT) return false;
+  if (appState.previewMode) return false;
+  return true;
+}
+
 const displayState = {
   backgroundColor: "#000000",
   creationShape: "circle",
@@ -703,7 +710,7 @@ function initP5Sketch() {
 
       if (appConfig.role === "control") {
         updateHoverState();
-        if (appState.previewMode) return;
+        if (!isControlEditInteractionAllowed()) return;
 
         const selected = getSelectedLight();
         const hovered =
@@ -752,6 +759,7 @@ function initP5Sketch() {
 
     p.mousePressed = function (evt) {
       if (appConfig.role === "display") return;
+      if (!isControlEditInteractionAllowed()) return;
       if (isChromeUiEventTarget(evt)) return;
       if (isPointerOverPanel()) return;
       if (!isMouseOnCanvas()) return;
@@ -808,6 +816,7 @@ function initP5Sketch() {
 
     p.mouseDragged = function (evt) {
       if (appConfig.role === "display") return;
+      if (!isControlEditInteractionAllowed()) return;
       if (isChromeUiEventTarget(evt)) return;
       if (isPointerOverPanel()) return;
       if (!appState.dragging) return;
@@ -857,6 +866,7 @@ function initP5Sketch() {
 
     p.doubleClicked = function (evt) {
       if (appConfig.role === "display") return;
+      if (!isControlEditInteractionAllowed()) return;
       if (isChromeUiEventTarget(evt)) return;
       if (isPointerOverPanel()) return;
       if (!isMouseOnCanvas()) return;
@@ -1053,7 +1063,7 @@ function hitTest(x, y) {
 }
 
 function updateHoverState() {
-  if (appState.previewMode) {
+  if (!isControlEditInteractionAllowed()) {
     appState.hoveredIdx = -1;
     return;
   }
@@ -1125,6 +1135,7 @@ function getSelectedLights() {
 }
 
 function copySelectedLightToClipboard() {
+  if (!isControlEditInteractionAllowed()) return;
   const sel = getSelectedLights();
   if (!sel.length) return;
   let minX = Infinity;
@@ -1179,6 +1190,7 @@ function copySelectedLightToClipboard() {
 }
 
 function pasteLightFromClipboard() {
+  if (!isControlEditInteractionAllowed()) return;
   if (!lightClipboard || !Array.isArray(lightClipboard.items)) return;
   const items = lightClipboard.items;
   if (!items.length) return;
@@ -1518,6 +1530,7 @@ function setPreviewMode(enabled) {
 }
 
 function updateSelectedLight(props) {
+  if (!isControlEditInteractionAllowed()) return;
   const l = getSelectedLight();
   if (!l) return;
   if (props && props.toggleVisibility === true) {
@@ -1631,6 +1644,7 @@ function getState() {
 }
 
 function addLayerAtCenter(type) {
+  if (!isControlEditInteractionAllowed()) return;
   if (!p5Sketch) return;
   const cx = Math.round(p5Sketch.width / 2);
   const cy = Math.round(p5Sketch.height / 2);
@@ -1643,6 +1657,7 @@ function addLayerAtCenter(type) {
 }
 
 function deleteSelectedLight() {
+  if (!isControlEditInteractionAllowed()) return;
   const ids = getSelectedIds();
   if (!ids.length) return;
   appState.lights = appState.lights.filter((l) => !ids.includes(l.id));
@@ -1667,12 +1682,14 @@ function clearSelection() {
 }
 
 function setSelection(ids, primaryId) {
+  if (!isControlEditInteractionAllowed()) return;
   applySelection(ids || [], primaryId || null);
   emitSelectionChange();
   dispatchLightsChanged();
 }
 
 function selectLightById(id) {
+  if (!isControlEditInteractionAllowed()) return;
   if (typeof id !== "string") return;
   const exists = appState.lights.some((l) => l.id === id);
   if (!exists) return;
@@ -1682,6 +1699,7 @@ function selectLightById(id) {
 }
 
 function bringToFrontById(id) {
+  if (!isControlEditInteractionAllowed()) return;
   const idx = appState.lights.findIndex((l) => l.id === id);
   if (idx === -1) return;
   const [item] = appState.lights.splice(idx, 1);
@@ -1691,6 +1709,7 @@ function bringToFrontById(id) {
 }
 
 function sendToBackById(id) {
+  if (!isControlEditInteractionAllowed()) return;
   const idx = appState.lights.findIndex((l) => l.id === id);
   if (idx === -1) return;
   const [item] = appState.lights.splice(idx, 1);
@@ -1700,6 +1719,7 @@ function sendToBackById(id) {
 }
 
 function reorderLightsById(dragId, targetId, place = "before") {
+  if (!isControlEditInteractionAllowed()) return;
   if (dragId === targetId) return;
   const dragIdx = appState.lights.findIndex((l) => l.id === dragId);
   const targetIdx = appState.lights.findIndex((l) => l.id === targetId);
@@ -2034,6 +2054,9 @@ function setMode(next) {
   shootPlaying = false;
   shootElapsedSec = 0;
   shootLastPerfMs = null;
+  appState.dragging = false;
+  appState.multiDragAnchorId = null;
+  appState.multiDragOffsets = [];
   broadcastModeChange();
   dispatchEvent(
     new CustomEvent("app:modeChanged", {
