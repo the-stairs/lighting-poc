@@ -77,6 +77,12 @@ function registerIpcHandlers() {
     }
     return windowManager.toggleDisplayFullscreen(displayId);
   });
+  ipcMain.handle("preset:saveAs", async function () {
+    if (!windowManager) {
+      return false;
+    }
+    return windowManager.savePresetAs();
+  });
 }
 
 /** 릴레이·렌더러 준비 후 컨트롤 1개와 연결된 모니터 수만큼 디스플레이 창 */

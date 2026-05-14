@@ -77,6 +77,140 @@ function $(sel) {
   return document.querySelector(sel);
 }
 
+function syncTopbarDisplayMenuSelection() {
+  const sel = document.getElementById("displaySelect");
+  const list = document.getElementById("topbarDisplayList");
+  if (!sel || !list) {
+    return;
+  }
+  const v = sel.value;
+  list.querySelectorAll(".topbar-menu-option").forEach((b) => {
+    b.setAttribute("aria-selected", b.dataset.value === v ? "true" : "false");
+  });
+}
+
+function syncTopbarDisplayFromSelect() {
+  syncTopbarDisplayMenuSelection();
+}
+
+function closeAllTopbarDropdowns() {
+  document.querySelectorAll("#controlTopBar [data-dropdown]").forEach((root) => {
+    const panel = root.querySelector(".topbar-dropdown-panel");
+    const trigger = root.querySelector(".topbar-section-head");
+    if (panel) {
+      panel.hidden = true;
+    }
+    if (trigger) {
+      trigger.setAttribute("aria-expanded", "false");
+    }
+    root.classList.remove("is-open");
+  });
+}
+
+function toggleTopbarDropdown(root, panel, trigger) {
+  const willOpen = panel.hidden;
+  closeAllTopbarDropdowns();
+  if (!willOpen) {
+    return;
+  }
+  panel.hidden = false;
+  trigger.setAttribute("aria-expanded", "true");
+  root.classList.add("is-open");
+  refreshPanelIcons();
+}
+
+function bindOneTopbarDropdown(root) {
+  const trigger = root.querySelector(".topbar-section-head");
+  const panel = root.querySelector(".topbar-dropdown-panel");
+  if (!trigger || !panel) {
+    return;
+  }
+  trigger.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleTopbarDropdown(root, panel, trigger);
+  });
+}
+
+function isEventTargetInsideControlTopBar(target) {
+  return Boolean(target && target.closest && target.closest("#controlTopBar"));
+}
+
+function onDocumentMousedownCloseTopbar(e) {
+  if (isEventTargetInsideControlTopBar(e.target)) {
+    return;
+  }
+  closeAllTopbarDropdowns();
+}
+
+function onDocumentKeydownCloseTopbar(e) {
+  if (e.key !== "Escape") {
+    return;
+  }
+  closeAllTopbarDropdowns();
+}
+
+function bindTopbarDropdowns() {
+  const bar = document.getElementById("controlTopBar");
+  if (!bar) {
+    return;
+  }
+  bar.querySelectorAll("[data-dropdown]").forEach(bindOneTopbarDropdown);
+  document.addEventListener("mousedown", onDocumentMousedownCloseTopbar);
+  document.addEventListener("keydown", onDocumentKeydownCloseTopbar);
+}
+
+function onTopbarDisplayOptionClick(sel, value) {
+  if (sel.value === value) {
+    closeAllTopbarDropdowns();
+    return;
+  }
+  sel.value = value;
+  sel.dispatchEvent(new Event("change", { bubbles: true }));
+  closeAllTopbarDropdowns();
+  syncTopbarDisplayFromSelect();
+}
+
+function addTopbarDisplayOptionRow(sel, list, opt) {
+  const li = document.createElement("li");
+  li.setAttribute("role", "none");
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "topbar-menu-option";
+  btn.dataset.value = opt.value;
+  btn.textContent = opt.textContent.trim();
+  btn.setAttribute("role", "option");
+  btn.setAttribute("aria-selected", opt.selected ? "true" : "false");
+  btn.addEventListener("click", () => onTopbarDisplayOptionClick(sel, opt.value));
+  li.appendChild(btn);
+  list.appendChild(li);
+}
+
+function buildTopbarDisplayMenu() {
+  const sel = document.getElementById("displaySelect");
+  const list = document.getElementById("topbarDisplayList");
+  if (!sel || !list) {
+    return;
+  }
+  list.innerHTML = "";
+  Array.from(sel.options).forEach((opt) => addTopbarDisplayOptionRow(sel, list, opt));
+}
+
+function wireTopbarPresetCloseOnAction() {
+  const wrap = document.getElementById("topbarPresetDropdown");
+  if (!wrap) {
+    return;
+  }
+  wrap.addEventListener("click", (e) => {
+    const hit = e.target.closest(
+      "#exportPresetBtn, #importPresetBtn, #savePresetBtn",
+    );
+    if (!hit) {
+      return;
+    }
+    requestAnimationFrame(closeAllTopbarDropdowns);
+  });
+}
+
 function runRendererUiInit() {
   const togglePanelBtn = $("#togglePanelBtn");
   const toggleDockBtn = $("#toggleDockBtn");
@@ -152,6 +286,7 @@ function runRendererUiInit() {
   const deleteLightBtn = $("#deleteLightBtn");
   const fitCanvasBtn = $("#fitCanvasBtn");
   const exportBtn = $("#exportPresetBtn");
+  const savePresetBtn = $("#savePresetBtn");
   const presetFileName = $("#presetFileName");
   const importBtn = $("#importPresetBtn");
   const importFile = $("#importPresetFile");
@@ -172,7 +307,6 @@ function runRendererUiInit() {
   const modeEditBtn = $("#modeEditBtn");
   const modeShootBtn = $("#modeShootBtn");
   const shootStartBtn = $("#shootStartBtn");
-  const shootControls = document.querySelector(".shoot-controls");
   const shootModeHint = document.getElementById("shootModeHint");
   const canvasContainer = document.getElementById("canvas-container");
   let selectionIndicator = null;
@@ -204,7 +338,7 @@ function runRendererUiInit() {
       shootModeHint.style.display = isShoot ? "block" : "none";
       if (isShoot) {
         shootModeHint.textContent =
-          '촬영 모드입니다. 상단의 "촬영 시작(F5)" 버튼이나 F5 키로 타이머를 시작하세요.';
+          '촬영 모드입니다. 탑바의 "촬영 시작(F5)" 버튼이나 F5 키로 타이머를 시작하세요.';
       }
     }
   }
@@ -223,9 +357,14 @@ function runRendererUiInit() {
           detail: { targetId, previousId },
         }),
       );
+      syncTopbarDisplayFromSelect();
     });
   }
 
+  buildTopbarDisplayMenu();
+  bindTopbarDropdowns();
+  wireTopbarPresetCloseOnAction();
+  syncTopbarDisplayFromSelect();
   function updateCanvasViewZoomLabel() {
     if (!canvasViewZoomLabel || !window.app?.getControlCanvasView) {
       return;
@@ -548,6 +687,21 @@ function runRendererUiInit() {
     if (presetFileName && exportBtn) {
       presetFileName.addEventListener("keydown", (e) => {
         if (e.key === "Enter") exportBtn.click();
+      });
+    }
+
+    if (savePresetBtn) {
+      savePresetBtn.addEventListener("click", async () => {
+        const api = window.electronAPI;
+        if (api && typeof api.savePresetAs === "function") {
+          try {
+            await api.savePresetAs();
+          } catch (err) {
+            console.error(err);
+          }
+          return;
+        }
+        if (exportBtn) exportBtn.click();
       });
     }
 
@@ -1642,20 +1796,6 @@ function runRendererUiInit() {
       }
     }
 
-    if (shootControls) {
-      ["pointerdown", "pointerup", "click", "mousedown", "mouseup"].forEach(
-        (type) => {
-          shootControls.addEventListener(
-            type,
-            (e) => {
-              e.stopPropagation();
-            },
-            false,
-          );
-        },
-      );
-    }
-
     // Output → direct number input (safe ones, exclude softnessValue)
     enableOutputNumberEdit(exposureValue, exposureSlider, { decimals: 2 });
     enableOutputNumberEdit(falloffCValue, falloffCSlider, { decimals: 1 });
@@ -1798,26 +1938,26 @@ function runRendererUiInit() {
     { capture: true },
   );
 
-  // ===== 패널 위 입력을 p5로 보내지 않기: 버블 단계에서 전파 차단 =====
+  // ===== 패널·탑바 입력을 p5로 보내지 않기: 버블 단계에서 전파 차단 =====
+  const canvasBubbleBlockTypes = [
+    "pointerdown",
+    "pointerup",
+    "pointermove",
+    "pointercancel",
+    "mousedown",
+    "mouseup",
+    "mousemove",
+    "click",
+    "dblclick",
+    "touchstart",
+    "touchend",
+    "touchmove",
+    "touchcancel",
+    "contextmenu",
+  ];
   const panelEl = document.getElementById("control-panel");
   if (panelEl) {
-    const bubbleBlock = [
-      "pointerdown",
-      "pointerup",
-      "pointermove",
-      "pointercancel",
-      "mousedown",
-      "mouseup",
-      "mousemove",
-      "click",
-      "dblclick",
-      "touchstart",
-      "touchend",
-      "touchmove",
-      "touchcancel",
-      "contextmenu",
-    ];
-    bubbleBlock.forEach((type) => {
+    canvasBubbleBlockTypes.forEach((type) => {
       panelEl.addEventListener(
         type,
         (e) => {
@@ -1831,6 +1971,19 @@ function runRendererUiInit() {
       "wheel",
       (e) => {
         if (document.body.classList.contains("panel-hidden")) return;
+        e.stopPropagation();
+      },
+      { capture: false, passive: true },
+    );
+  }
+  const topBarEl = document.getElementById("controlTopBar");
+  if (topBarEl) {
+    canvasBubbleBlockTypes.forEach((type) => {
+      topBarEl.addEventListener(type, (e) => e.stopPropagation(), false);
+    });
+    topBarEl.addEventListener(
+      "wheel",
+      (e) => {
         e.stopPropagation();
       },
       { capture: false, passive: true },

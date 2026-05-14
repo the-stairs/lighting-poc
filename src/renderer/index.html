@@ -13,8 +13,12 @@
         <p class="nav-desc">컨트롤 또는 디스플레이를 선택하세요.</p>
         <nav class="nav-links">
           <a href="?role=control" class="nav-link nav-link-control">컨트롤</a>
-          <a href="?role=display&displayId=top_lower" class="nav-link">상단(하측)</a>
-          <a href="?role=display&displayId=top_upper" class="nav-link">상단(상측)</a>
+          <a href="?role=display&displayId=top_lower" class="nav-link"
+            >상단(하측)</a
+          >
+          <a href="?role=display&displayId=top_upper" class="nav-link"
+            >상단(상측)</a
+          >
           <a href="?role=display&displayId=left" class="nav-link">좌</a>
           <a href="?role=display&displayId=right" class="nav-link">우</a>
           <a href="?role=display&displayId=front" class="nav-link">정면</a>
@@ -23,9 +27,220 @@
       </div>
     </div>
     <div id="app-page" class="app-page" hidden>
+      <header id="controlTopBar" class="app-top-bar" role="banner">
+        <div class="app-top-bar-inner">
+          <select id="displaySelect" class="visually-hidden" tabindex="-1">
+            <option value="top_lower">상단(하측)</option>
+            <option value="top_upper">상단(상측)</option>
+            <option value="left">좌</option>
+            <option value="right">우</option>
+            <option value="front">정면</option>
+            <option value="rear">후면</option>
+          </select>
+
+          <div class="topbar-sections" role="toolbar" aria-label="편집 메뉴">
+            <section
+              class="topbar-section topbar-dropdown"
+              data-dropdown
+              id="topbarDisplayDropdown"
+              aria-label="디스플레이"
+            >
+              <button
+                type="button"
+                class="topbar-section-head"
+                id="topbarDisplayTrigger"
+                aria-expanded="false"
+                aria-haspopup="listbox"
+                aria-controls="topbarDisplayPanel"
+              >
+                <span class="topbar-section-head-main">
+                  <span class="topbar-dropdown-icon-wrap" aria-hidden="true">
+                    <i data-lucide="monitor" class="hi-icon"></i>
+                  </span>
+                  <span class="topbar-section-title">디스플레이</span>
+                </span>
+                <i
+                  data-lucide="chevron-down"
+                  class="hi-icon topbar-dropdown-chevron"
+                  aria-hidden="true"
+                ></i>
+              </button>
+              <div
+                class="topbar-dropdown-panel"
+                id="topbarDisplayPanel"
+                hidden
+                role="listbox"
+                aria-labelledby="topbarDisplayTrigger"
+              >
+                <ul class="topbar-dropdown-list" id="topbarDisplayList"></ul>
+              </div>
+            </section>
+
+            <section
+              class="topbar-section topbar-dropdown"
+              data-dropdown
+              id="topbarPresetDropdown"
+              aria-label="프리셋"
+            >
+              <button
+                type="button"
+                class="topbar-section-head"
+                id="topbarPresetTrigger"
+                aria-expanded="false"
+                aria-haspopup="true"
+                aria-controls="topbarPresetPanel"
+              >
+                <span class="topbar-section-head-main">
+                  <span class="topbar-dropdown-icon-wrap" aria-hidden="true">
+                    <i data-lucide="package" class="hi-icon"></i>
+                  </span>
+                  <span class="topbar-section-title">프리셋</span>
+                </span>
+                <i
+                  data-lucide="chevron-down"
+                  class="hi-icon topbar-dropdown-chevron"
+                  aria-hidden="true"
+                ></i>
+              </button>
+              <div
+                class="topbar-dropdown-panel topbar-dropdown-panel--preset"
+                id="topbarPresetPanel"
+                hidden
+                role="menu"
+                aria-labelledby="topbarPresetTrigger"
+              >
+                <div class="topbar-panel-section">
+                  <label class="topbar-panel-label" for="presetFileName"
+                    >Export 파일명</label
+                  >
+                  <input
+                    id="presetFileName"
+                    type="text"
+                    class="topbar-panel-input"
+                    placeholder="비우면 자동"
+                    autocomplete="off"
+                  />
+                </div>
+                <div class="topbar-panel-divider" role="separator"></div>
+                <div class="topbar-panel-actions">
+                  <button
+                    type="button"
+                    id="exportPresetBtn"
+                    class="topbar-panel-action"
+                  >
+                    <i
+                      data-lucide="download"
+                      class="hi-icon"
+                      aria-hidden="true"
+                    ></i>
+                    <span>JSON 보내기</span>
+                  </button>
+                  <button
+                    type="button"
+                    id="importPresetBtn"
+                    class="topbar-panel-action"
+                  >
+                    <i
+                      data-lucide="upload"
+                      class="hi-icon"
+                      aria-hidden="true"
+                    ></i>
+                    <span>JSON 가져오기</span>
+                  </button>
+                  <button
+                    type="button"
+                    id="savePresetBtn"
+                    class="topbar-panel-action topbar-panel-action--primary"
+                  >
+                    <i
+                      data-lucide="save"
+                      class="hi-icon"
+                      aria-hidden="true"
+                    ></i>
+                    <span>저장</span>
+                  </button>
+                </div>
+                <input
+                  id="importPresetFile"
+                  type="file"
+                  accept="application/json"
+                  hidden
+                />
+              </div>
+            </section>
+
+            <section
+              class="topbar-section topbar-section--modes"
+              id="topbarModeSection"
+              aria-label="편집·촬영 모드"
+            >
+              <div class="topbar-mode-strip" role="group">
+                <button
+                  type="button"
+                  id="modeEditBtn"
+                  class="topbar-mode-btn btn-with-icon"
+                >
+                  <i
+                    data-lucide="pencil"
+                    class="hi-icon"
+                    aria-hidden="true"
+                  ></i>
+                  <span>편집 모드(F3)</span>
+                </button>
+                <button
+                  type="button"
+                  id="modeShootBtn"
+                  class="topbar-mode-btn btn-with-icon"
+                >
+                  <i data-lucide="video" class="hi-icon" aria-hidden="true"></i>
+                  <span>촬영 모드(F4)</span>
+                </button>
+                <button
+                  type="button"
+                  id="shootStartBtn"
+                  class="topbar-mode-btn topbar-mode-btn--record btn-with-icon"
+                >
+                  <i
+                    data-lucide="circle-dot"
+                    class="hi-icon"
+                    aria-hidden="true"
+                  ></i>
+                  <span>촬영 시작(F5)</span>
+                </button>
+              </div>
+            </section>
+
+            <section
+              class="topbar-section topbar-section--reset"
+              id="topbarResetSection"
+              aria-label="전체 초기화"
+            >
+              <button
+                type="button"
+                id="resetAllDisplaysBtn"
+                class="topbar-reset-btn topbar-mode-btn btn-with-icon"
+                title="모든 디스플레이를 초기값으로 초기화"
+              >
+                <i
+                  data-lucide="refresh-cw"
+                  class="hi-icon"
+                  aria-hidden="true"
+                ></i>
+                <span>전체 초기화</span>
+              </button>
+            </section>
+          </div>
+        </div>
+      </header>
       <aside class="panel" id="control-panel">
         <div class="panel-title-row">
-          <h1>Lighting System</h1>
+          <h1
+            id="panelDisplayTitle"
+            class="panel-display-title"
+            aria-live="polite"
+          >
+            상단(하측)
+          </h1>
           <div class="panel-top-actions">
             <span
               id="toggleDockBtn"
@@ -55,55 +270,6 @@
         </div>
 
         <div class="panel-scroll">
-          <details class="group" id="display-section">
-            <summary>
-              <i data-lucide="monitor" class="hi-icon" aria-hidden="true"></i>
-              디스플레이
-            </summary>
-            <div class="row">
-              <label class="grow">
-                <span>적용 대상</span>
-                <select id="displaySelect">
-                  <option value="top_lower">상단(하측)</option>
-                  <option value="top_upper">상단(상측)</option>
-                  <option value="left">좌</option>
-                  <option value="right">우</option>
-                  <option value="front">정면</option>
-                  <option value="rear">후면</option>
-                </select>
-              </label>
-            </div>
-          </details>
-
-          <details class="group">
-            <summary>
-              <i data-lucide="download" class="hi-icon" aria-hidden="true"></i>
-              프리셋
-            </summary>
-            <div class="row">
-              <button id="exportPresetBtn" type="button">Export JSON</button>
-              <button id="importPresetBtn" type="button">Import JSON</button>
-              <input
-                id="importPresetFile"
-                type="file"
-                accept="application/json"
-                style="display: none"
-              />
-            </div>
-            <div class="row">
-              <label class="grow">
-                <span>Export 파일명 (빈칸이면 자동)</span>
-                <input
-                  id="presetFileName"
-                  type="text"
-                  placeholder="예: studio_A_softbox_v2"
-                  autocomplete="off"
-                />
-              </label>
-            </div>
-            <p class="hint">모든 디스플레이 설정을 저장/불러오기 합니다.</p>
-          </details>
-
           <details class="group">
             <summary>
               <i
@@ -636,17 +802,6 @@
 
           <footer class="muted small">클릭: 생성/선택 · 드래그: 이동</footer>
         </div>
-        <div class="panel-bottom-bar">
-          <button
-            type="button"
-            id="resetAllDisplaysBtn"
-            class="btn-with-icon panel-reset-btn"
-            title="모든 디스플레이를 초기값으로 초기화"
-          >
-            <i data-lucide="refresh-cw" class="hi-icon" aria-hidden="true"></i>
-            <span>전체 초기화</span>
-          </button>
-        </div>
       </aside>
 
       <main id="canvas-container" class="canvas-container" aria-label="canvas">
@@ -690,26 +845,6 @@
           class="canvas-view-zoom-label muted small"
         ></span>
       </div>
-
-      <div class="shoot-controls">
-        <button type="button" id="modeEditBtn" class="btn-with-icon">
-          <i data-lucide="pencil" class="hi-icon" aria-hidden="true"></i>
-          <span>편집 모드(F3)</span>
-        </button>
-        <button type="button" id="modeShootBtn" class="btn-with-icon">
-          <i data-lucide="video" class="hi-icon" aria-hidden="true"></i>
-          <span>촬영 모드(F4)</span>
-        </button>
-        <button type="button" id="shootStartBtn" class="btn-with-icon">
-          <i data-lucide="circle-dot" class="hi-icon" aria-hidden="true"></i>
-          <span>촬영 시작(F5)</span>
-        </button>
-      </div>
-      <!-- FIXME: 촬영 모드, 촬영 중 안내 임시 삭제 -->
-      <!-- <div id="shootModeHint" class="shoot-mode-hint muted small">
-        촬영 모드입니다. 상단의 &ldquo;촬영 시작(F5)&rdquo; 버튼이나 F5 키로
-        타이머를 시작하세요.
-      </div> -->
     </div>
 
     <script type="module" src="/nav.js"></script>

@@ -412,6 +412,12 @@ function readDisplayTargetLabel(displayId) {
 }
 
 function syncControlEditDisplayMeta() {
+  const displayId = getActiveDisplayIdForCanvas();
+  const label = readDisplayTargetLabel(displayId);
+  const panelTitle = document.getElementById("panelDisplayTitle");
+  if (panelTitle && appConfig.role === "control") {
+    panelTitle.textContent = label;
+  }
   const meta = document.getElementById("controlEditDisplayMeta");
   if (!meta) {
     return;
@@ -422,8 +428,6 @@ function syncControlEditDisplayMeta() {
     return;
   }
   meta.removeAttribute("hidden");
-  const displayId = getActiveDisplayIdForCanvas();
-  const label = readDisplayTargetLabel(displayId);
   const { width, height } = resolveCanvasSize(displayId);
   meta.textContent = `${label} · ${width}×${height}`;
 }
@@ -931,7 +935,7 @@ function isChromeUiEventTarget(evt) {
   }
   return Boolean(
     evt.target.closest("#canvas-view-dock") ||
-      evt.target.closest(".shoot-controls")
+      evt.target.closest("#controlTopBar")
   );
 }
 
@@ -967,15 +971,29 @@ function isPointerOverPanel() {
       return true;
     }
   }
-  const shoot = document.querySelector(".shoot-controls");
-  if (shoot) {
-    const sr = shoot.getBoundingClientRect();
-    const overShoot =
-      clientX >= sr.left &&
-      clientX <= sr.right &&
-      clientY >= sr.top &&
-      clientY <= sr.bottom;
-    if (overShoot) {
+  const topBar = document.getElementById("controlTopBar");
+  if (topBar) {
+    const tr = topBar.getBoundingClientRect();
+    const overTop =
+      clientX >= tr.left &&
+      clientX <= tr.right &&
+      clientY >= tr.top &&
+      clientY <= tr.bottom;
+    if (overTop) {
+      return true;
+    }
+  }
+  const topBarPanels = document.querySelectorAll(
+    "#controlTopBar .topbar-dropdown-panel:not([hidden])",
+  );
+  for (let i = 0; i < topBarPanels.length; i++) {
+    const pr = topBarPanels[i].getBoundingClientRect();
+    const overPanel =
+      clientX >= pr.left &&
+      clientX <= pr.right &&
+      clientY >= pr.top &&
+      clientY <= pr.bottom;
+    if (overPanel) {
       return true;
     }
   }

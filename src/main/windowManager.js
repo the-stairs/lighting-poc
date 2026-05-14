@@ -67,6 +67,8 @@ export function createWindowManager(options) {
     control: null,
     displays: new Map(),
   };
+  /** @type {null | (() => Promise<boolean>)} */
+  let runControlSavePresetAs = null;
   let skipControlCloseDialog = false;
   const userDataPath = options.userDataPath;
   const getOrigin = options.getOrigin;
@@ -140,6 +142,8 @@ export function createWindowManager(options) {
       return persistPresetExportOrAlert(saveResult.filePath);
     }
 
+    runControlSavePresetAs = trySavePresetFlow;
+
     let controlCloseDialogPending = false;
     win.on("close", function (event) {
       if (skipControlCloseDialog || win.isDestroyed()) {
@@ -179,6 +183,7 @@ export function createWindowManager(options) {
         });
     });
     win.on("closed", function () {
+      runControlSavePresetAs = null;
       windows.control = null;
     });
     windows.control = win;
@@ -267,6 +272,13 @@ export function createWindowManager(options) {
     windows.control = null;
   }
 
+  async function savePresetAs() {
+    if (!runControlSavePresetAs) {
+      return false;
+    }
+    return runControlSavePresetAs();
+  }
+
   return {
     createControlWindow,
     openAllDisplays,
@@ -274,6 +286,7 @@ export function createWindowManager(options) {
     relaunchDisplays,
     toggleDisplayFullscreen,
     closeAll,
+    savePresetAs,
   };
 }
 

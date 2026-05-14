@@ -38,4 +38,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   toggleDisplayFullscreen: function (displayId) {
     return ipcRenderer.invoke("displays:toggleFullscreen", displayId);
   },
+  savePresetAs: function () {
+    return ipcRenderer.invoke("preset:saveAs");
+  },
 });
