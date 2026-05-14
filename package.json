@@ -1,6 +1,6 @@
 {
   "name": "lighting-poc",
-  "version": "2.0.0",
+  "version": "2.1.1",
   "type": "module",
   "engines": {
     "node": ">=24.15.0 <25"
@@ -14,7 +14,6 @@
     "dist:publish": "npm run build && electron-builder --publish always --config electron-builder.yml",
     "dist:mac": "npm run build && electron-builder --mac --publish never --config electron-builder.yml",
     "dist:win": "npm run build && electron-builder --win --publish never --config electron-builder.yml",
-    "dist:linux": "npm run build && electron-builder --linux --publish never --config electron-builder.yml",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {

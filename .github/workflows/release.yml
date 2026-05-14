@@ -12,7 +12,40 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+  verify-tag-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify tag matches package.json
+        shell: bash
+        run: |
+          set -euo pipefail
+          ref="${GITHUB_REF#refs/tags/}"
+          if [[ "$ref" != v* ]]; then
+            echo "::error::Expected tag v*.*.*, got: $ref"
+            exit 1
+          fi
+          tag_ver="${ref#v}"
+          pkg_ver=$(node -p "require('./package.json').version")
+          if [[ "$tag_ver" != "$pkg_ver" ]]; then
+            echo "::error::Git tag implies version ${tag_ver} but package.json has ${pkg_ver}."
+            echo "::error::Bump package.json (and electron-builder.yml buildVersion if set) then tag v${pkg_ver}."
+            exit 1
+          fi
+          if [[ -f electron-builder.yml ]]; then
+            if grep -qE '^buildVersion:' electron-builder.yml; then
+              eb_ver=$(grep -E '^buildVersion:' electron-builder.yml | head -1 | sed -E 's/^buildVersion:[[:space:]]*"([^"]*)".*/\1/')
+              if [[ "$eb_ver" != "$pkg_ver" ]]; then
+                echo "::error::electron-builder.yml buildVersion (${eb_ver}) must match package.json (${pkg_ver})."
+                exit 1
+              fi
+            fi
+          fi
+          echo "OK: tag v${tag_ver} matches package.json and electron-builder.yml."
+
   release:
+    needs: verify-tag-version
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false

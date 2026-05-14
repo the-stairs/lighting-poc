@@ -1,6 +1,5 @@
 appId: com.thestairs.lighting-poc
 productName: Lighting POC
-buildVersion: "2.0.0"
 directories:
   output: release
   buildResources: build
@@ -22,8 +21,3 @@ win:
   target:
     - nsis
     - portable
-linux:
-  target:
-    - AppImage
-    - deb
-  category: Graphics
