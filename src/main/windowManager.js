@@ -199,10 +199,10 @@ export function createWindowManager(options) {
     });
     win.loadURL(buildRoleUrl(getOrigin(), "display", displayId));
     win.once("ready-to-show", function () {
+      win.setBounds(bounds);
+      win.show();
       if (displayFullscreen) {
         win.setFullScreen(true);
-      } else {
-        win.show();
       }
     });
     win.on("closed", function () {
